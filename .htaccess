@@ -1,0 +1,16 @@
+<IfModule mod_rewrite.c>
+    <IfModule mod_negotiation.c>
+        Options -MultiViews -Indexes
+    </IfModule>
+
+    RewriteEngine On
+    
+    # Handle the subdirectory base
+    RewriteBase /dcc-lib/
+
+    # Redirect root to public folder
+    RewriteRule ^$ public/ [L]
+
+    # Redirect everything else to public folder, unless it already points there
+    RewriteRule ^((?!public/).*)$ public/$1 [L,NC]
+</IfModule>
