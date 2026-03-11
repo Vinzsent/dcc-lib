@@ -256,9 +256,40 @@ class AdminController extends Controller
         return view('admin.student-logs', compact('logs', 'campuses', 'departments', 'years'));
     }
 
-    public function reports()
+    public function reports(Request $request)
     {
-        return view('admin.reports');
+        $location = session('location');
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+
+        // Initialize course summary
+        $courseSummary = null;
+
+        // If date range is provided, fetch course summary
+        if ($startDate && $endDate) {
+            $query = \App\Models\Inout::query();
+
+            // Apply location filter
+            if ($location && $location !== 'Master') {
+                $query->where('campus', $location);
+            }
+
+            // Apply date range filter
+            $query->whereBetween('time_in', [
+                $startDate . ' 00:00:00',
+                $endDate . ' 23:59:59'
+            ]);
+
+            // Group by course and count
+            $courseSummary = $query->selectRaw('course, COUNT(*) as total_logs, COUNT(DISTINCT sid) as unique_students')
+                ->whereNotNull('course')
+                ->where('course', '!=', '')
+                ->groupBy('course')
+                ->orderBy('total_logs', 'desc')
+                ->get();
+        }
+
+        return view('admin.reports', compact('courseSummary', 'startDate', 'endDate'));
     }
 
     public function users()

@@ -232,7 +232,7 @@
 
                         <td class="py-4 px-6 text-center">
                             <div class="flex item-center justify-center gap-3">
-                                <button onclick="showEditModal({{ $student->toJson() }})" class="text-orange-600 hover:text-orange-800 transition" title="Edit">
+                                <button type="button" onclick="showEditModal({{ $student->toJson() }})" class="text-orange-600 hover:text-orange-800 transition" title="Edit">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                     </svg>
@@ -393,30 +393,30 @@
                     <h3 class="text-lg font-bold text-gray-900 mb-4">Edit Student</h3>
                     <div class="grid grid-cols-1 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">Student ID</label>
+                            <label class="block text-sm font-medium text-gray-700" for="edit_sid">Student ID</label>
                             <input type="text" name="sid" id="edit_sid" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm border p-2">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">RFID</label>
+                            <label class="block text-sm font-medium text-gray-700" for="edit_rfid">RFID</label>
                             <input type="text" name="rfid" id="edit_rfid" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm border p-2">
                         </div>
                         <div class="grid grid-cols-3 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700">First Name</label>
+                                <label class="block text-sm font-medium text-gray-700" for="edit_firstname">First Name</label>
                                 <input type="text" name="firstname" id="edit_firstname" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm border p-2">
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700">Middle Name</label>
+                                <label class="block text-sm font-medium text-gray-700" for="edit_middlename">Middle Name</label>
                                 <input type="text" name="middlename" id="edit_middlename" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm border p-2">
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700">Last Name</label>
+                                <label class="block text-sm font-medium text-gray-700" for="edit_lastname">Last Name</label>
                                 <input type="text" name="lastname" id="edit_lastname" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm border p-2">
                             </div>
                         </div>
                         @if(session('location') == 'DCC BED')
                             <div>
-                                <label class="block text-sm font-medium text-gray-700">Grade</label>
+                                <label class="block text-sm font-medium text-gray-700" for="edit_grade">Grade</label>
                                 <select name="grade" id="edit_grade" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm border p-2">
                                     <option value="">Select Grade</option>
                                     @foreach(['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'] as $g)
@@ -425,12 +425,12 @@
                                 </select>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700">Section</label>
+                                <label class="block text-sm font-medium text-gray-700" for="edit_section">Section</label>
                                 <input type="text" name="section" id="edit_section" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm border p-2">
                             </div>
                         @else
                             <div>
-                                <label class="block text-sm font-medium text-gray-700">Department</label>
+                                <label class="block text-sm font-medium text-gray-700" for="edit_department">Department</label>
                                 <select name="department" id="edit_department" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm border p-2">
                                     <option value="">Select Department</option>
                                     <option value="CJE">CJE</option>
@@ -442,7 +442,7 @@
                             </div>
                             
                             <div id="edit_course_container">
-                                <label class="block text-sm font-medium text-gray-700">Course</label>
+                                <label class="block text-sm font-medium text-gray-700" for="edit_course_text">Course</label>
                                 <input type="text" name="course" id="edit_course_text" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm border p-2 course-input">
                                 
                                 <select name="course" id="edit_course_cba" disabled class="hidden mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm border p-2 course-input">
@@ -464,7 +464,7 @@
                                 </select>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700">Year</label>
+                                <label class="block text-sm font-medium text-gray-700" for="edit_year">Year</label>
                                 <select name="year" id="edit_year" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm border p-2">
                                     <option value="1st Year">1st Year</option>
                                     <option value="2nd Year">2nd Year</option>
