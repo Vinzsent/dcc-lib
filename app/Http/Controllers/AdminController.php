@@ -289,7 +289,11 @@ class AdminController extends Controller
                 ->get();
         }
 
-        return view('admin.reports', compact('courseSummary', 'startDate', 'endDate'));
+        // Get unique courses and years for the student report filters
+        $courses = Student::distinct()->whereNotNull('course')->where('course', '!=', 'N/A')->pluck('course')->sort()->toArray();
+        $years = Student::distinct()->whereNotNull('year')->where('year', '!=', 'N/A')->pluck('year')->sort()->toArray();
+
+        return view('admin.reports', compact('courseSummary', 'startDate', 'endDate', 'courses', 'years'));
     }
 
     public function users()
@@ -367,6 +371,14 @@ class AdminController extends Controller
                 $query->where('campus', $location);
             }
 
+            if ($request->filled('course')) {
+                $query->where('course', $request->course);
+            }
+
+            if ($request->filled('year')) {
+                $query->where('year', $request->year);
+            }
+
             if ($search = $request->input('search')) {
                 $query->where(function ($q) use ($search) {
                     $q->where('firstname', 'like', "%{$search}%")
@@ -378,14 +390,13 @@ class AdminController extends Controller
                 });
             }
 
-            $students = $query->latest()->get();
-
             if ($format === 'pdf') {
+                $students = $query->latest()->get();
                 $pdf = Pdf::loadView('admin.exports.students-pdf', compact('students', 'location'));
                 return $pdf->download('student_information_' . date('Y-m-d_H-i-s') . '.pdf');
             }
 
-            // CSV for Students
+            // CSV for Students - Streaming
             $fileName = 'student_information_' . date('Y-m-d_H-i-s') . '.csv';
             $headers = [
                 "Content-type"        => "text/csv",
@@ -397,10 +408,10 @@ class AdminController extends Controller
 
             $columns = ['Student ID', 'RFID', 'First Name', 'Last Name', 'Campus', 'Department', 'Course', 'Section', 'Year'];
 
-            $callback = function () use ($students, $columns) {
+            $callback = function () use ($query, $columns) {
                 $file = fopen('php://output', 'w');
                 fputcsv($file, $columns);
-                foreach ($students as $student) {
+                foreach ($query->latest()->cursor() as $student) {
                     fputcsv($file, [
                         $student->sid,
                         $student->rfid ?? 'N/A',
@@ -446,11 +457,12 @@ class AdminController extends Controller
         $logs = $query->latest('time_in')->get();
 
         if ($format === 'pdf') {
+            $logs = $query->latest('time_in')->get();
             $pdf = Pdf::loadView('admin.exports.logs-pdf', compact('logs', 'location'));
             return $pdf->download('student_logs_' . date('Y-m-d_H-i-s') . '.pdf');
         }
 
-        // Default to CSV
+        // Default to CSV - Streaming
         $fileName = 'student_logs_' . date('Y-m-d_H-i-s') . '.csv';
 
         $headers = array(
@@ -463,11 +475,11 @@ class AdminController extends Controller
 
         $columns = array('Campus', 'Student ID', 'RFID', 'First Name', 'Last Name', 'Department', 'Course', 'Section', 'Year', 'Date', 'Time In', 'Time Out');
 
-        $callback = function () use ($logs, $columns) {
+        $callback = function () use ($query, $columns) {
             $file = fopen('php://output', 'w');
             fputcsv($file, $columns);
 
-            foreach ($logs as $log) {
+            foreach ($query->latest('time_in')->cursor() as $log) {
                 $row['Date']        = \Carbon\Carbon::parse($log->time_in)->format('Y-m-d');
                 $row['Time In']     = \Carbon\Carbon::parse($log->time_in)->format('h:i A');
                 $row['Time Out']    = $log->time_out ? \Carbon\Carbon::parse($log->time_out)->format('h:i A') : 'Active';
@@ -499,7 +511,7 @@ class AdminController extends Controller
                     ->orWhere('middlename', 'like', "%{$search}%")
                     ->orWhere('lastname', 'like', "%{$search}%")
                     ->orWhere('department', 'like', "%{$search}%")
-                    ->orWhere('eid', 'like', "%{$search}%")
+                    ->orWhere('id', 'like', "%{$search}%")
                     ->orWhere('rfid', 'like', "%{$search}%")
                     ->orWhere('position', 'like', "%{$search}%")
                     ->orWhere('employment_type', 'like', "%{$search}%");
@@ -507,8 +519,8 @@ class AdminController extends Controller
         }
 
         // Column-specific Filters
-        if ($request->filled('eid')) {
-            $query->where('eid', 'like', "%{$request->eid}%");
+        if ($request->filled('id')) {
+            $query->where('id', 'like', "%{$request->id}%");
         }
         if ($request->filled('rfid')) {
             $query->where('rfid', 'like', "%{$request->rfid}%");
@@ -533,15 +545,15 @@ class AdminController extends Controller
         }
 
         // Sorting
-        $sort = $request->input('sort', 'created_at');
+        $sort = $request->input('sort', 'id');
         $direction = $request->input('direction', 'desc');
 
         // Validate sort column to prevent SQL injection
-        $allowedSorts = ['eid', 'rfid', 'firstname', 'middlename', 'lastname', 'department', 'position', 'employment_type', 'created_at'];
+        $allowedSorts = ['id', 'rfid', 'firstname', 'middlename', 'lastname', 'department', 'position', 'employment_type'];
         if (in_array($sort, $allowedSorts)) {
             $query->orderBy($sort, $direction);
         } else {
-            $query->latest();
+            $query->orderBy('id', 'desc');
         }
 
         $employees = $query->paginate(10);
@@ -556,7 +568,6 @@ class AdminController extends Controller
     public function storeEmployee(Request $request)
     {
         $data = $request->validate([
-            'eid' => 'required|string|unique:employees|max:255',
             'rfid' => 'nullable|string|unique:employees|max:255',
             'firstname' => 'required|string|max:255',
             'middlename' => 'nullable|string|max:255',
@@ -578,7 +589,6 @@ class AdminController extends Controller
     public function updateEmployee(Request $request, Employee $employee)
     {
         $data = $request->validate([
-            'eid' => 'required|string|max:255|unique:employees,eid,' . $employee->id,
             'rfid' => 'nullable|string|max:255|unique:employees,rfid,' . $employee->id,
             'firstname' => 'required|string|max:255',
             'middlename' => 'nullable|string|max:255',
@@ -617,7 +627,7 @@ class AdminController extends Controller
                     ->orWhere('middlename', 'like', "%{$search}%")
                     ->orWhere('lastname', 'like', "%{$search}%")
                     ->orWhere('department', 'like', "%{$search}%")
-                    ->orWhere('eid', 'like', "%{$search}%")
+                    ->orWhere('id', 'like', "%{$search}%")
                     ->orWhere('rfid', 'like', "%{$search}%")
                     ->orWhere('position', 'like', "%{$search}%");
             });
