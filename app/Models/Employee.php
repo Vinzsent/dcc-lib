@@ -17,4 +17,9 @@ class Employee extends Model
         'position',
         'employment_type'
     ];
+
+    public function transactions()
+    {
+        return $this->morphMany(Transaction::class, 'borrower', 'borrower_type', 'borrower_id', 'id');
+    }
 }
