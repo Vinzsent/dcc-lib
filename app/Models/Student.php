@@ -21,4 +21,9 @@ class Student extends Model
         'grade',
         'section'
     ];
+
+    public function transactions()
+    {
+        return $this->morphMany(Transaction::class, 'borrower', 'borrower_type', 'borrower_id', 'sid');
+    }
 }
