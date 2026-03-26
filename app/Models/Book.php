@@ -11,7 +11,12 @@ class Book extends Model
     protected $keyType = 'string';
 
     protected $fillable = [
-        'accession_no', 'title', 'author', 'call_number', 'status'
+        'accession_no',
+        'barcode',
+        'title',
+        'author',
+        'callnumber',
+        'status'
     ];
 
     public function transactions()
