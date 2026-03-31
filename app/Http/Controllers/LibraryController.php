@@ -44,6 +44,7 @@ class LibraryController extends Controller
     {
         $book = Book::findOrFail($accession_no);
         $request->validate([
+            'accession_no' => 'required|string|unique:books,accession_no,' . $accession_no . ',accession_no',
             'barcode' => 'nullable|string|unique:books,barcode,' . $accession_no . ',accession_no',
             'title' => 'required|string',
             'author' => 'required|string',
@@ -51,7 +52,7 @@ class LibraryController extends Controller
             'status' => 'required|in:Available,Borrowed'
         ]);
 
-        $book->update($request->only('barcode', 'title', 'author', 'call_number', 'status'));
+        $book->update($request->only('accession_no', 'barcode', 'title', 'author', 'call_number', 'status'));
         return response()->json(['success' => true, 'message' => 'Book updated successfully']);
     }
 
@@ -74,15 +75,15 @@ class LibraryController extends Controller
             'accession_no' => 'required|string',
             'borrow_type'  => 'required|in:Student,Faculty,Staff',
             'book_section' => 'required|in:Reserved,Filipiniana,Circulation,Fiction',
-            'borrow_period' => 'required|in:30 minutes,1 day,3 days,5 days',
+            'borrow_period' => 'required|in:30 minutes,1 day,3 days,5 days,1st Semester,2nd Semester',
         ]);
 
         // Resolve borrower
         $student = Student::where('sid', $request->borrower_id)
-                          ->orWhere('rfid', $request->borrower_id)->first();
+            ->orWhere('rfid', $request->borrower_id)->first();
 
         $employee = Employee::where('id', $request->borrower_id)
-                            ->orWhere('rfid', $request->borrower_id)->first();
+            ->orWhere('rfid', $request->borrower_id)->first();
 
         $borrower = $student ?: $employee;
         if (!$borrower) {
@@ -90,8 +91,8 @@ class LibraryController extends Controller
         }
 
         $book = Book::where('barcode', $request->accession_no)
-                    ->orWhere('accession_no', $request->accession_no)
-                    ->first();
+            ->orWhere('accession_no', $request->accession_no)
+            ->first();
 
         if (!$book) {
             return response()->json(['success' => false, 'message' => 'Book not found (by barcode or accession no).'], 404);
@@ -103,11 +104,13 @@ class LibraryController extends Controller
 
         // Compute due_date from borrow_period
         $due_date = match ($request->borrow_period) {
-            '30 minutes' => Carbon::now()->addMinutes(30),
-            '1 day'      => Carbon::today()->addDay(),
-            '3 days'     => Carbon::today()->addDays(3),
-            '5 days'     => Carbon::today()->addDays(5),
-            default      => Carbon::today()->addWeek(),
+            '30 minutes'   => Carbon::now()->addMinutes(30),
+            '1 day'        => Carbon::today()->addDay(),
+            '3 days'       => Carbon::today()->addDays(3),
+            '5 days'       => Carbon::today()->addDays(5),
+            '1st Semester' => Carbon::today()->addWeeks(18),
+            '2nd Semester' => Carbon::today()->addWeeks(18),
+            default        => Carbon::today()->addWeek(),
         };
 
         $book->update(['status' => 'Borrowed']);
@@ -140,7 +143,7 @@ class LibraryController extends Controller
                 'title'       => $book->title,
                 'author'      => $book->author,
                 'call_number' => $book->call_number,
-                'accession_no'=> $book->accession_no,
+                'accession_no' => $book->accession_no,
                 'barcode'     => $book->barcode
             ],
         ]);
@@ -158,14 +161,17 @@ class LibraryController extends Controller
             'accession_no' => 'required|string'
         ]);
 
-        $book = Book::where('accession_no', $request->accession_no)->first();
+        $book = Book::where('accession_no', $request->accession_no)
+            ->orWhere('barcode', $request->accession_no)
+            ->first();
+
         if (!$book) {
             return response()->json(['success' => false, 'message' => 'Book not found.'], 404);
         }
 
-        $transaction = Transaction::where('accession_no', $request->accession_no)
-                        ->where('status', 'Borrowed')
-                        ->first();
+        $transaction = Transaction::where('accession_no', $book->accession_no)
+            ->where('status', 'Borrowed')
+            ->first();
 
         if (!$transaction) {
             return response()->json(['success' => false, 'message' => 'No active borrow transaction found for this book.'], 404);
@@ -173,7 +179,7 @@ class LibraryController extends Controller
 
         $today = Carbon::today();
         $dueDate = Carbon::parse($transaction->due_date);
-        
+
         $daysOverdue = 0;
         $fine = 0;
 
@@ -191,7 +197,7 @@ class LibraryController extends Controller
         $book->update(['status' => 'Available']);
 
         return response()->json([
-            'success' => true, 
+            'success' => true,
             'message' => 'Book returned successfully.',
             'fine' => $fine,
             'days_overdue' => $daysOverdue
@@ -259,7 +265,10 @@ class LibraryController extends Controller
             ->values();
 
         return view('admin.library.reports', compact(
-            'monthlyReport', 'topBooks', 'topStudents', 'topEmployees'
+            'monthlyReport',
+            'topBooks',
+            'topStudents',
+            'topEmployees'
         ));
     }
 
@@ -339,7 +348,10 @@ class LibraryController extends Controller
 
         // ── Build monthly rows ──────────────────────────────────────────
         $monthlyRows = $monthly->map(fn($r) => [
-            $r->month, $r->total_borrowed, $r->total_returned, $r->total_overdue
+            $r->month,
+            $r->total_borrowed,
+            $r->total_returned,
+            $r->total_overdue
         ])->toArray();
 
         // ── Build book rows ─────────────────────────────────────────────
@@ -355,20 +367,20 @@ class LibraryController extends Controller
         $xml  = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
         $xml .= '<?mso-application progid="Excel.Sheet"?>' . "\n";
         $xml .= '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"'
-              . ' xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"'
-              . ' xmlns:x="urn:schemas-microsoft-com:office:excel">' . "\n";
+            . ' xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"'
+            . ' xmlns:x="urn:schemas-microsoft-com:office:excel">' . "\n";
 
         // Styles
         $xml .= '<Styles>';
         $xml .= '<Style ss:ID="header">'
-              . '<Font ss:Bold="1" ss:Color="#FFFFFF" ss:Size="11"/>'
-              . '<Interior ss:Color="#1a7a4a" ss:Pattern="Solid"/>'
-              . '<Alignment ss:Horizontal="Center" ss:Vertical="Center"/>'
-              . '<Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/></Borders>'
-              . '</Style>';
+            . '<Font ss:Bold="1" ss:Color="#FFFFFF" ss:Size="11"/>'
+            . '<Interior ss:Color="#1a7a4a" ss:Pattern="Solid"/>'
+            . '<Alignment ss:Horizontal="Center" ss:Vertical="Center"/>'
+            . '<Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/></Borders>'
+            . '</Style>';
         $xml .= '<Style ss:ID="data">'
-              . '<Alignment ss:Vertical="Center"/>'
-              . '</Style>';
+            . '<Alignment ss:Vertical="Center"/>'
+            . '</Style>';
         $xml .= '</Styles>';
 
         // Sheets
@@ -402,4 +414,3 @@ class LibraryController extends Controller
         ]);
     }
 }
-
