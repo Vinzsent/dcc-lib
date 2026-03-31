@@ -15,7 +15,7 @@ class Book extends Model
         'barcode',
         'title',
         'author',
-        'callnumber',
+        'call_number',
         'status'
     ];
 
