@@ -16,11 +16,18 @@ class Book extends Model
         'title',
         'author',
         'call_number',
+        'location',
+        'shelf_number',
         'status'
     ];
 
     public function transactions()
     {
         return $this->hasMany(Transaction::class, 'accession_no', 'accession_no');
+    }
+
+    public function shelf()
+    {
+        return $this->belongsTo(Shelf::class, 'shelf_number', 'shelf_number');
     }
 }
