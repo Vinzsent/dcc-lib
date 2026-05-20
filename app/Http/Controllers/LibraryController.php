@@ -7,6 +7,7 @@ use App\Models\Book;
 use App\Models\Transaction;
 use App\Models\Student;
 use App\Models\Employee;
+use App\Models\Shelf;
 use Carbon\Carbon;
 
 class LibraryController extends Controller
@@ -15,7 +16,8 @@ class LibraryController extends Controller
     public function booksIndex()
     {
         $books = Book::orderBy('created_at', 'desc')->get();
-        return view('admin.library.books', compact('books'));
+        $shelves = Shelf::orderBy('shelf_number')->get();
+        return view('admin.library.books', compact('books', 'shelves'));
     }
 
     public function booksStore(Request $request)
@@ -25,7 +27,9 @@ class LibraryController extends Controller
             'barcode' => 'nullable|string|unique:books,barcode',
             'title' => 'required|string',
             'author' => 'required|string',
-            'call_number' => 'required|string'
+            'call_number' => 'required|string',
+            'location' => 'nullable|string',
+            'shelf_number' => 'nullable|string'
         ]);
 
         Book::create([
@@ -34,6 +38,8 @@ class LibraryController extends Controller
             'title' => $request->title,
             'author' => $request->author,
             'call_number' => $request->call_number,
+            'location' => $request->location,
+            'shelf_number' => $request->shelf_number,
             'status' => 'Available'
         ]);
 
@@ -49,10 +55,12 @@ class LibraryController extends Controller
             'title' => 'required|string',
             'author' => 'required|string',
             'call_number' => 'required|string',
+            'location' => 'nullable|string',
+            'shelf_number' => 'nullable|string',
             'status' => 'required|in:Available,Borrowed'
         ]);
 
-        $book->update($request->only('accession_no', 'barcode', 'title', 'author', 'call_number', 'status'));
+        $book->update($request->only('accession_no', 'barcode', 'title', 'author', 'call_number', 'location', 'shelf_number', 'status'));
         return response()->json(['success' => true, 'message' => 'Book updated successfully']);
     }
 
@@ -143,6 +151,8 @@ class LibraryController extends Controller
                 'title'       => $book->title,
                 'author'      => $book->author,
                 'call_number' => $book->call_number,
+                'location'    => $book->location,
+                'shelf_number' => $book->shelf_number,
                 'accession_no' => $book->accession_no,
                 'barcode'     => $book->barcode
             ],
@@ -412,5 +422,43 @@ class LibraryController extends Controller
             'Content-Disposition' => "attachment; filename=\"{$filename}\"",
             'Cache-Control'       => 'no-cache, must-revalidate',
         ]);
+    }
+
+    // ----- SHELVES CRUD -----
+    public function shelvesIndex()
+    {
+        $shelves = Shelf::orderBy('shelf_number')->get();
+        return view('admin.library.shelves', compact('shelves'));
+    }
+
+    public function shelvesStore(Request $request)
+    {
+        $request->validate([
+            'shelf_number' => 'required|string|unique:shelves,shelf_number',
+            'description'  => 'nullable|string'
+        ]);
+
+        Shelf::create($request->only('shelf_number', 'description'));
+
+        return response()->json(['success' => true, 'message' => 'Shelf added successfully']);
+    }
+
+    public function shelvesUpdate(Request $request, $id)
+    {
+        $shelf = Shelf::findOrFail($id);
+        $request->validate([
+            'shelf_number' => 'required|string|unique:shelves,shelf_number,' . $id,
+            'description'  => 'nullable|string'
+        ]);
+
+        $shelf->update($request->only('shelf_number', 'description'));
+
+        return response()->json(['success' => true, 'message' => 'Shelf updated successfully']);
+    }
+
+    public function shelvesDestroy($id)
+    {
+        Shelf::findOrFail($id)->delete();
+        return response()->json(['success' => true, 'message' => 'Shelf deleted successfully']);
     }
 }
