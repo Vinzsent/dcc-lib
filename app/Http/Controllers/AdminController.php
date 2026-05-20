@@ -8,6 +8,8 @@ use App\Models\User;
 use App\Models\Student;
 use App\Models\Employee;
 use App\Models\EmployeeLog;
+use App\Models\Transaction;
+use Carbon\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 
@@ -30,7 +32,28 @@ class AdminController extends Controller
         $totalLogs = (clone $inoutQuery)->count();
         $recentLogs = (clone $inoutQuery)->latest('updated_at')->take(5)->get();
 
-        return view('admin.dashboard', compact('totalStudents', 'activeNow', 'totalLogs', 'recentLogs'));
+        // Analytics Graph Data (Last 7 Days)
+        $chartLabels = [];
+        $logCounts = [];
+        $borrowCounts = [];
+
+        for ($i = 6; $i >= 0; $i--) {
+            $date = Carbon::today()->subDays($i);
+            $chartLabels[] = $date->format('M d');
+
+            // Count Logs for the day
+            $dailyLogs = (clone $inoutQuery)->whereDate('time_in', $date)->count();
+            $logCounts[] = $dailyLogs;
+
+            // Count Borrowings (Transactions) for the day
+            $dailyBorrows = Transaction::whereDate('date_borrowed', $date)->count();
+            $borrowCounts[] = $dailyBorrows;
+        }
+
+        return view('admin.dashboard', compact(
+            'totalStudents', 'activeNow', 'totalLogs', 'recentLogs', 
+            'chartLabels', 'logCounts', 'borrowCounts'
+        ));
     }
 
     public function studentData(Request $request)
@@ -293,7 +316,42 @@ class AdminController extends Controller
         $courses = Student::distinct()->whereNotNull('course')->where('course', '!=', 'N/A')->pluck('course')->sort()->toArray();
         $years = Student::distinct()->whereNotNull('year')->where('year', '!=', 'N/A')->pluck('year')->sort()->toArray();
 
+        // Return JSON for AJAX preview requests
+        if ($request->ajax()) {
+            return response()->json($courseSummary ?? []);
+        }
+
         return view('admin.reports', compact('courseSummary', 'startDate', 'endDate', 'courses', 'years'));
+    }
+
+    public function studentPreview(Request $request)
+    {
+        $location = session('location');
+        $query = Student::query();
+
+        if ($location && $location !== 'Master') {
+            $query->where('campus', $location);
+        }
+
+        if ($request->filled('course')) {
+            $query->where('course', $request->course);
+        }
+
+        if ($request->filled('year')) {
+            $query->where('year', $request->year);
+        }
+
+        $students = $query->latest()->get()->map(function ($student) {
+            return [
+                'sid' => $student->sid,
+                'fullname' => "{$student->firstname} " . ($student->middlename ? "{$student->middlename} " : "") . "{$student->lastname}",
+                'course' => $student->course,
+                'year' => $student->year,
+                'campus' => $student->campus
+            ];
+        });
+
+        return response()->json($students);
     }
 
     public function users()
