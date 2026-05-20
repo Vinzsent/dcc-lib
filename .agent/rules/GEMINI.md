@@ -2,272 +2,337 @@
 trigger: always_on
 ---
 
-# GEMINI.md - Antigravity Kit
+# GEMINI.md - Universal Development Rules (Pro Version)
 
-> This file defines how the AI behaves in this workspace.
+## Core Behavior
 
----
+- Give clear, direct, and practical answers.
+- Focus on implementation, not theory.
+- Ask only necessary clarifying questions.
+- Prioritize correctness, scalability, and maintainability.
 
-## CRITICAL: AGENT & SKILL PROTOCOL (START HERE)
+## Thinking Approach
 
-> **MANDATORY:** You MUST read the appropriate agent file and its skills BEFORE performing any implementation. This is the highest priority rule.
+- Understand the goal before solving.
+- Break problems into structured steps.
+- Prefer simple, scalable solutions.
+- Consider edge cases when relevant.
 
-### 1. Modular Skill Loading Protocol
+## Code Standards
 
-Agent activated → Check frontmatter "skills:" → Read SKILL.md (INDEX) → Read specific sections.
-
-- **Selective Reading:** DO NOT read ALL files in a skill folder. Read `SKILL.md` first, then only read sections matching the user's request.
-- **Rule Priority:** P0 (GEMINI.md) > P1 (Agent .md) > P2 (SKILL.md). All rules are binding.
-
-### 2. Enforcement Protocol
-
-1. **When agent is activated:**
-    - ✅ Activate: Read Rules → Check Frontmatter → Load SKILL.md → Apply All.
-2. **Forbidden:** Never skip reading agent rules or skill instructions. "Read → Understand → Apply" is mandatory.
-
----
-
-## 📥 REQUEST CLASSIFIER (STEP 1)
-
-**Before ANY action, classify the request:**
-
-| Request Type     | Trigger Keywords                           | Active Tiers                   | Result                      |
-| ---------------- | ------------------------------------------ | ------------------------------ | --------------------------- |
-| **QUESTION**     | "what is", "how does", "explain"           | TIER 0 only                    | Text Response               |
-| **SURVEY/INTEL** | "analyze", "list files", "overview"        | TIER 0 + Explorer              | Session Intel (No File)     |
-| **SIMPLE CODE**  | "fix", "add", "change" (single file)       | TIER 0 + TIER 1 (lite)         | Inline Edit                 |
-| **COMPLEX CODE** | "build", "create", "implement", "refactor" | TIER 0 + TIER 1 (full) + Agent | **{task-slug}.md Required** |
-| **DESIGN/UI**    | "design", "UI", "page", "dashboard"        | TIER 0 + TIER 1 + Agent        | **{task-slug}.md Required** |
-| **SLASH CMD**    | /create, /orchestrate, /debug              | Command-specific flow          | Variable                    |
+- Write clean, modular, maintainable code.
+- Use consistent naming conventions.
+- Follow modern best practices.
+- Avoid unnecessary complexity.
+- Comment only when needed.
 
 ---
 
-## 🤖 INTELLIGENT AGENT ROUTING (STEP 2 - AUTO)
+# ⚙️ TECHNOLOGY STACK RULES
 
-**ALWAYS ACTIVE: Before responding to ANY request, automatically analyze and select the best agent(s).**
+## Laravel Standard
 
-> 🔴 **MANDATORY:** You MUST follow the protocol defined in `@[skills/intelligent-routing]`.
+- Always use the latest version of :contentReference[oaicite:0]{index=0}.
+- Ensure all related tools and dependencies are compatible and updated, including:
+    - PHP version
+    - Composer packages
+    - Node.js & NPM
+    - Database systems (MySQL, etc.)
+- Verify version compatibility before installing or upgrading.
+- Avoid using outdated Laravel features or syntax.
+- Follow Laravel best practices (MVC, Eloquent ORM, migrations, etc.).
 
-### Auto-Selection Protocol
+## General Technology Rules
 
-1. **Analyze (Silent)**: Detect domains (Frontend, Backend, Security, etc.) from user request.
-2. **Select Agent(s)**: Choose the most appropriate specialist(s).
-3. **Inform User**: Concisely state which expertise is being applied.
-4. **Apply**: Generate response using the selected agent's persona and rules.
-
-### Response Format (MANDATORY)
-
-When auto-applying an agent, inform the user:
-
-```markdown
-🤖 **Applying knowledge of `@[agent-name]`...**
-
-[Continue with specialized response]
-```
-
-**Rules:**
-
-1. **Silent Analysis**: No verbose meta-commentary ("I am analyzing...").
-2. **Respect Overrides**: If user mentions `@agent`, use it.
-3. **Complex Tasks**: For multi-domain requests, use `orchestrator` and ask Socratic questions first.
-
-### ⚠️ AGENT ROUTING CHECKLIST (MANDATORY BEFORE EVERY CODE/DESIGN RESPONSE)
-
-**Before ANY code or design work, you MUST complete this mental checklist:**
-
-| Step | Check | If Unchecked |
-|------|-------|--------------|
-| 1 | Did I identify the correct agent for this domain? | → STOP. Analyze request domain first. |
-| 2 | Did I READ the agent's `.md` file (or recall its rules)? | → STOP. Open `.agent/agents/{agent}.md` |
-| 3 | Did I announce `🤖 Applying knowledge of @[agent]...`? | → STOP. Add announcement before response. |
-| 4 | Did I load required skills from agent's frontmatter? | → STOP. Check `skills:` field and read them. |
-
-**Failure Conditions:**
-
-- ❌ Writing code without identifying an agent = **PROTOCOL VIOLATION**
-- ❌ Skipping the announcement = **USER CANNOT VERIFY AGENT WAS USED**
-- ❌ Ignoring agent-specific rules (e.g., Purple Ban) = **QUALITY FAILURE**
-
-> 🔴 **Self-Check Trigger:** Every time you are about to write code or create UI, ask yourself:
-> "Have I completed the Agent Routing Checklist?" If NO → Complete it first.
+- Adapt to any stack when needed, but prioritize Laravel for web systems.
+- Do not assume frameworks unless specified (except Laravel as default).
+- Prefer stable and widely used technologies.
 
 ---
 
-## TIER 0: UNIVERSAL RULES (Always Active)
+## Debugging Rules
 
-### 🌐 Language Handling
+- Identify root cause first.
+- Provide clear, step-by-step fixes.
+- Offer alternatives when needed.
 
-When user's prompt is NOT in English:
+## System Design
 
-1. **Internally translate** for better comprehension
-2. **Respond in user's language** - match their communication
-3. **Code comments/variables** remain in English
+- Build with production mindset.
+- Apply separation of concerns (MVC, services).
+- Design for scalability and future updates.
 
-### 🧹 Clean Code (Global Mandatory)
+## Security Rules
 
-**ALL code MUST follow `@[skills/clean-code]` rules. No exceptions.**
+- Validate and sanitize all inputs.
+- Prevent SQL Injection, XSS, CSRF.
+- Never expose sensitive data.
 
-- **Code**: Concise, direct, no over-engineering. Self-documenting.
-- **Testing**: Mandatory. Pyramid (Unit > Int > E2E) + AAA Pattern.
-- **Performance**: Measure first. Adhere to 2025 standards (Core Web Vitals).
-- **Infra/Safety**: 5-Phase Deployment. Verify secrets security.
+## Database Rules
 
-### 📁 File Dependency Awareness
+- Optimize queries.
+- Normalize when needed.
+- Use indexing when beneficial.
 
-**Before modifying ANY file:**
+## API Rules
 
-1. Check `CODEBASE.md` → File Dependencies
-2. Identify dependent files
-3. Update ALL affected files together
+- Follow RESTful standards.
+- Use proper status codes.
+- Return consistent response formats.
 
-### 🗺️ System Map Read
+## Git Rules
 
-> 🔴 **MANDATORY:** Read `ARCHITECTURE.md` at session start to understand Agents, Skills, and Scripts.
-
-**Path Awareness:**
-
-- Agents: `.agent/` (Project)
-- Skills: `.agent/skills/` (Project)
-- Runtime Scripts: `.agent/skills/<skill>/scripts/`
-
-### 🧠 Read → Understand → Apply
-
-```
-❌ WRONG: Read agent file → Start coding
-✅ CORRECT: Read → Understand WHY → Apply PRINCIPLES → Code
-```
-
-**Before coding, answer:**
-
-1. What is the GOAL of this agent/skill?
-2. What PRINCIPLES must I apply?
-3. How does this DIFFER from generic output?
+- Provide exact commands when needed.
+- Use meaningful commit messages.
+- Avoid destructive actions without warning.
 
 ---
 
-## TIER 1: CODE RULES (When Writing Code)
+# 🎨 UI/UX SYSTEM (Tailwind Standard)
 
-### 📱 Project Type Routing
+## Core UI Rule
 
-| Project Type                           | Primary Agent         | Skills                        |
-| -------------------------------------- | --------------------- | ----------------------------- |
-| **MOBILE** (iOS, Android, RN, Flutter) | `mobile-developer`    | mobile-design                 |
-| **WEB** (Next.js, React web)           | `frontend-specialist` | frontend-design               |
-| **BACKEND** (API, server, DB)          | `backend-specialist`  | api-patterns, database-design |
+- Always use :contentReference[oaicite:1]{index=1}.
+- Avoid custom CSS unless necessary.
+- Use utility-first approach consistently.
 
-> 🔴 **Mobile + frontend-specialist = WRONG.** Mobile = mobile-developer ONLY.
+## Design Principles
 
-### 🛑 Socratic Gate
+- Clean, minimal, modern UI.
+- Consistent spacing and layout.
+- Mobile-first responsive design.
+- Prioritize usability over decoration.
 
-**For complex requests, STOP and ASK first:**
+## Layout System
 
-### 🛑 GLOBAL SOCRATIC GATE (TIER 0)
+- Use `max-w-*` containers for readability.
+- Apply consistent padding: `p-4`, `p-6`, `p-8`.
+- Use grid/flex (`flex`, `grid`, `gap-4`, `gap-6`).
+- Center content using `mx-auto`, `items-center`, `justify-center`.
 
-**MANDATORY: Every user request must pass through the Socratic Gate before ANY tool use or implementation.**
+## Spacing Rules
 
-| Request Type            | Strategy       | Required Action                                                   |
-| ----------------------- | -------------- | ----------------------------------------------------------------- |
-| **New Feature / Build** | Deep Discovery | ASK minimum 3 strategic questions                                 |
-| **Code Edit / Bug Fix** | Context Check  | Confirm understanding + ask impact questions                      |
-| **Vague / Simple**      | Clarification  | Ask Purpose, Users, and Scope                                     |
-| **Full Orchestration**  | Gatekeeper     | **STOP** subagents until user confirms plan details               |
-| **Direct "Proceed"**    | Validation     | **STOP** → Even if answers are given, ask 2 "Edge Case" questions |
+- Small: `gap-2`, `p-2`
+- Medium: `gap-4`, `p-4`
+- Large: `gap-6`, `p-6`, `p-8`
 
-**Protocol:**
+## Typography Rules
 
-1. **Never Assume:** If even 1% is unclear, ASK.
-2. **Handle Spec-heavy Requests:** When user gives a list (Answers 1, 2, 3...), do NOT skip the gate. Instead, ask about **Trade-offs** or **Edge Cases** (e.g., "LocalStorage confirmed, but should we handle data clearing or versioning?") before starting.
-3. **Wait:** Do NOT invoke subagents or write code until the user clears the Gate.
-4. **Reference:** Full protocol in `@[skills/brainstorming]`.
+- Titles: `text-xl`, `text-2xl`, `font-bold`
+- Subtitles: `text-lg`, `font-semibold`
+- Body: `text-sm`, `text-base`
+- Secondary text: `text-gray-600`
 
-### 🏁 Final Checklist Protocol
+## Color System (Default)
 
-**Trigger:** When the user says "son kontrolleri yap", "final checks", "çalıştır tüm testleri", or similar phrases.
+- Primary: `bg-blue-600`, `text-white`
+- Secondary: `bg-gray-100`, `text-gray-800`
+- Success: `bg-green-500`
+- Danger: `bg-red-500`
+- Warning: `bg-yellow-500`
+- Use hover + transitions (`hover:bg-blue-700`, `transition duration-200`)
 
-| Task Stage       | Command                                            | Purpose                        |
-| ---------------- | -------------------------------------------------- | ------------------------------ |
-| **Manual Audit** | `python .agent/scripts/checklist.py .`             | Priority-based project audit   |
-| **Pre-Deploy**   | `python .agent/scripts/checklist.py . --url <URL>` | Full Suite + Performance + E2E |
+## Component Standards
 
-**Priority Execution Order:**
+### Buttons
 
-1. **Security** → 2. **Lint** → 3. **Schema** → 4. **Tests** → 5. **UX** → 6. **Seo** → 7. **Lighthouse/E2E**
+- `px-4 py-2 rounded-lg font-medium`
+- Primary: `bg-blue-600 text-white hover:bg-blue-700`
+- Secondary: `bg-gray-200 hover:bg-gray-300`
 
-**Rules:**
+### Cards
 
-- **Completion:** A task is NOT finished until `checklist.py` returns success.
-- **Reporting:** If it fails, fix the **Critical** blockers first (Security/Lint).
+- `bg-white shadow-md rounded-2xl p-4`
+- Use `space-y-3`
 
-**Available Scripts (12 total):**
+### Inputs
 
-| Script                     | Skill                 | When to Use         |
-| -------------------------- | --------------------- | ------------------- |
-| `security_scan.py`         | vulnerability-scanner | Always on deploy    |
-| `dependency_analyzer.py`   | vulnerability-scanner | Weekly / Deploy     |
-| `lint_runner.py`           | lint-and-validate     | Every code change   |
-| `test_runner.py`           | testing-patterns      | After logic change  |
-| `schema_validator.py`      | database-design       | After DB change     |
-| `ux_audit.py`              | frontend-design       | After UI change     |
-| `accessibility_checker.py` | frontend-design       | After UI change     |
-| `seo_checker.py`           | seo-fundamentals      | After page change   |
-| `bundle_analyzer.py`       | performance-profiling | Before deploy       |
-| `mobile_audit.py`          | mobile-design         | After mobile change |
-| `lighthouse_audit.py`      | performance-profiling | Before deploy       |
-| `playwright_runner.py`     | webapp-testing        | Before deploy       |
+- `w-full border rounded-lg px-3 py-2`
+- `focus:ring-2 focus:ring-blue-500`
 
-> 🔴 **Agents & Skills can invoke ANY script** via `python .agent/skills/<skill>/scripts/<script>.py`
+### Tables
 
-### 🎭 Gemini Mode Mapping
+- `w-full border-collapse`
+- Header: `bg-gray-100`
+- Row: `border-b hover:bg-gray-50`
 
-| Mode     | Agent             | Behavior                                     |
-| -------- | ----------------- | -------------------------------------------- |
-| **plan** | `project-planner` | 4-phase methodology. NO CODE before Phase 4. |
-| **ask**  | -                 | Focus on understanding. Ask questions.       |
-| **edit** | `orchestrator`    | Execute. Check `{task-slug}.md` first.       |
+### Modals
 
-**Plan Mode (4-Phase):**
+- Overlay: `fixed inset-0 bg-black bg-opacity-50`
+- Content: `bg-white p-6 rounded-xl shadow-lg`
 
-1. ANALYSIS → Research, questions
-2. PLANNING → `{task-slug}.md`, task breakdown
-3. SOLUTIONING → Architecture, design (NO CODE!)
-4. IMPLEMENTATION → Code + tests
+## Responsive Rules
 
-> 🔴 **Edit mode:** If multi-file or structural change → Offer to create `{task-slug}.md`. For single-file fixes → Proceed directly.
+- Always use breakpoints (`sm:`, `md:`, `lg:`, `xl:`)
+- Example: `grid-cols-1 md:grid-cols-2 lg:grid-cols-3`
+
+## UX Rules
+
+- Provide feedback (loading, success, error).
+- Keep navigation intuitive.
+- Avoid clutter.
+- Ensure accessibility.
+
+---
+# 🌐 DEPLOYMENT SAFETY RULES (CRITICAL)
+
+## Environment Consistency
+- Always ensure local and production environments are aligned:
+  - Same PHP version
+  - Same Laravel version
+  - Same database engine/version
+- Do not rely on local-only configurations.
 
 ---
 
-## TIER 2: DESIGN RULES (Reference)
-
-> **Design rules are in the specialist agents, NOT here.**
-
-| Task         | Read                            |
-| ------------ | ------------------------------- |
-| Web UI/UX    | `.agent/frontend-specialist.md` |
-| Mobile UI/UX | `.agent/mobile-developer.md`    |
-
-**These agents contain:**
-
-- Purple Ban (no violet/purple colors)
-- Template Ban (no standard layouts)
-- Anti-cliché rules
-- Deep Design Thinking protocol
-
-> 🔴 **For design work:** Open and READ the agent file. Rules are there.
+## Error Prevention
+- Code must not rely on:
+  - Debug mode (`APP_DEBUG=true`)
+  - Local-only paths or files
+- Always handle:
+  - null values
+  - missing data
+  - unexpected inputs
 
 ---
 
-## 📁 QUICK REFERENCE
-
-### Agents & Skills
-
-- **Masters**: `orchestrator`, `project-planner`, `security-auditor` (Cyber/Audit), `backend-specialist` (API/DB), `frontend-specialist` (UI/UX), `mobile-developer`, `debugger`, `game-developer`
-- **Key Skills**: `clean-code`, `brainstorming`, `app-builder`, `frontend-design`, `mobile-design`, `plan-writing`, `behavioral-modes`
-
-### Key Scripts
-
-- **Verify**: `.agent/scripts/verify_all.py`, `.agent/scripts/checklist.py`
-- **Scanners**: `security_scan.py`, `dependency_analyzer.py`
-- **Audits**: `ux_audit.py`, `mobile_audit.py`, `lighthouse_audit.py`, `seo_checker.py`
-- **Test**: `playwright_runner.py`, `test_runner.py`
+## Configuration Management
+- Never hardcode sensitive or environment-specific values.
+- Always use `.env` variables for:
+  - database credentials
+  - API keys
+  - URLs
+- Ensure `.env` in production is properly configured.
 
 ---
+
+## Case Sensitivity (IMPORTANT)
+- File and folder names must match EXACT case:
+  - Linux (production) is case-sensitive
+  - Windows (local) is not
+- Ensure:
+  - correct imports
+  - correct file paths
+
+---
+
+## Database Compatibility
+- Ensure migrations are production-safe:
+  - correct data types
+  - no unsupported SQL syntax
+- Avoid queries that only work on local DB setups.
+
+---
+
+## Dependency Management
+- Run:
+  - `composer install --no-dev --optimize-autoloader`
+- Ensure all required packages are installed.
+- Do not rely on dev-only dependencies in production.
+
+---
+
+## Caching & Optimization
+- Before deployment, run:
+  - `php artisan config:cache`
+  - `php artisan route:cache`
+  - `php artisan view:cache`
+- Clear cache if issues occur:
+  - `php artisan cache:clear`
+
+---
+
+## File & Storage Handling
+- Ensure proper permissions:
+  - `storage/`
+  - `bootstrap/cache`
+- Use Laravel storage system (not direct file paths).
+
+---
+
+## Error Handling
+- Never expose raw errors in production.
+- Use logs instead:
+  - `storage/logs/laravel.log`
+- Always implement fallback handling.
+
+---
+
+## API & Route Safety
+- Ensure all routes work without relying on:
+  - localhost URLs
+  - hardcoded domains
+- Use named routes and config-based URLs.
+
+---
+
+## Testing Before Deployment
+- Test in production-like environment when possible.
+- Check:
+  - forms
+  - APIs
+  - authentication
+  - file uploads
+
+---
+
+## Deployment Mindset
+- Always assume production is stricter than local.
+- Code must be:
+  - error-tolerant
+  - environment-independent
+  - fully configured
+---
+
+# 📱 MOBILE & APK RULES
+
+## Mobile Compatibility
+
+- All systems must be fully responsive (mobile-first).
+- UI must work smoothly on small screens.
+- Avoid fixed widths; use flexible layouts.
+- Optimize touch interactions.
+
+## App Conversion
+
+- Systems should be convertible into APK.
+- Prefer:
+    - :contentReference[oaicite:2]{index=2}
+    - :contentReference[oaicite:3]{index=3}
+    - :contentReference[oaicite:4]{index=4}
+
+## PWA Standards
+
+- Support installable apps.
+- Use manifest.json + service workers.
+- Enable offline support when possible.
+
+## Performance
+
+- Optimize assets and load time.
+- Avoid heavy components.
+
+---
+
+## Output Format
+
+- Use code blocks for code.
+- Use structured lists.
+- Keep responses clean and readable.
+
+## Constraints
+
+- Do not hallucinate tools or libraries.
+- Do not overcomplicate solutions.
+- Avoid redundancy.
+
+## Improvement Mode
+
+- Suggest optimizations when relevant.
+- Recommend better patterns if applicable.
+
+## Developer Context
+
+- Assume real-world production systems.
+- Optimize for speed + quality.
+- Ensure reusability and scalability.
