@@ -9,6 +9,82 @@ use Carbon\Carbon;
 
 class ScannerController extends Controller
 {
+    /**
+     * Returns grade values (lowercased) that should be SHOWN for a given location.
+     * Returns null if no grade-level filtering should be applied.
+     */
+    private function getAllowedGrades(string $location): ?array
+    {
+        return match ($location) {
+            'DCC BED SeniorHighSchool' => ['grade 11', 'grade 12'],
+            'DCC BED Highschool'       => ['grade 7', 'grade 8', 'grade 9', 'grade 10'],
+            'DCC BED Elementary'       => ['kinder 2', 'kindergarten 2', 'grade 1', 'grade 2', 'grade 3', 'grade 4', 'grade 5', 'grade 6'],
+            default                    => null, // no grade-level restriction
+        };
+    }
+
+    /**
+     * Apply a grade-level filter to a query builder.
+     * Checks both grade and year columns (or just year if grade is missing).
+     */
+    private function applyGradeFilter($query, string $location)
+    {
+        $bedGrades = [
+            'grade 1', 'grade 2', 'grade 3', 'grade 4', 'grade 5', 'grade 6',
+            'grade 7', 'grade 8', 'grade 9', 'grade 10', 'grade 11', 'grade 12',
+            'kinder 2', 'kindergarten 2',
+        ];
+
+        $allowed = $this->getAllowedGrades($location);
+        
+        $hasGradeColumn = true;
+        try {
+            $model = $query->getModel();
+            if ($model && $model->getTable() === 'inouts') {
+                $hasGradeColumn = false;
+            }
+        } catch (\Throwable $e) {
+            // Fallback
+        }
+
+        if ($location === 'DCC Main') {
+            // Exclude all BED grade-level students (check both grade and year columns)
+            $query->where(function ($q) use ($bedGrades, $hasGradeColumn) {
+                if ($hasGradeColumn) {
+                    $q->where(function ($sub) use ($bedGrades) {
+                        $sub->whereNull('grade')
+                            ->orWhereNotIn(\DB::raw('LOWER(grade)'), $bedGrades);
+                    });
+                }
+                $q->where(function ($sub) use ($bedGrades) {
+                    $sub->whereNull('year')
+                        ->orWhereNotIn(\DB::raw('LOWER(year)'), $bedGrades);
+                });
+            });
+        } elseif ($allowed !== null) {
+            // Show ONLY students in the allowed grades (check grade or year)
+            $query->where(function ($q) use ($allowed, $hasGradeColumn) {
+                if ($hasGradeColumn) {
+                    $q->whereIn(\DB::raw('LOWER(grade)'), $allowed)
+                      ->orWhereIn(\DB::raw('LOWER(year)'), $allowed);
+                } else {
+                    $q->whereIn(\DB::raw('LOWER(year)'), $allowed);
+                }
+            });
+        }
+
+        return $query;
+    }
+
+    /**
+     * Resolve the campus value used for campus-column filtering.
+     * All DCC BED sub-locations belong to the 'DCC BED' campus.
+     */
+    private function getCampus(string $location): string
+    {
+        return str_starts_with($location, 'DCC BED') ? 'DCC BED' : $location;
+    }
+
     public function index()
     {
         $today = Carbon::today();
@@ -16,8 +92,10 @@ class ScannerController extends Controller
 
         $query = Inout::query();
         if ($location && $location !== 'Master') {
-            $query->where('campus', $location);
+            $query->where('campus', $this->getCampus($location));
         }
+
+        $this->applyGradeFilter($query, $location ?? '');
 
         $studentsInside = (clone $query)->whereDate('time_in', $today)->whereNull('time_out')->count();
         $totalTimeIn = (clone $query)->whereDate('time_in', $today)->count();
@@ -41,8 +119,10 @@ class ScannerController extends Controller
         });
 
         if ($location && $location !== 'Master') {
-            $query->where('campus', $location);
+            $query->where('campus', $this->getCampus($location));
         }
+
+        $this->applyGradeFilter($query, $location ?? '');
 
         $student = $query->first();
 
@@ -109,8 +189,10 @@ class ScannerController extends Controller
 
         $query = Inout::query();
         if ($location && $location !== 'Master') {
-            $query->where('campus', $location);
+            $query->where('campus', $this->getCampus($location));
         }
+
+        $this->applyGradeFilter($query, $location ?? '');
 
         return [
             'inside' => (clone $query)->whereDate('time_in', $today)->whereNull('time_out')->count(),
