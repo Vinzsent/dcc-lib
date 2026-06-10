@@ -15,6 +15,94 @@ use Barryvdh\DomPDF\Facade\Pdf;
 
 class AdminController extends Controller
 {
+    /**
+     * Returns grade values (lowercased) that should be SHOWN for a given location.
+     * Returns null if no grade-level filtering should be applied.
+     */
+    private function getAllowedGrades(string $location): ?array
+    {
+        return match ($location) {
+            'DCC BED SeniorHighSchool' => ['grade 11', 'grade 12'],
+            'DCC BED Highschool'       => ['grade 7', 'grade 8', 'grade 9', 'grade 10'],
+            'DCC BED Elementary'       => ['kinder 2', 'kindergarten 2', 'grade 1', 'grade 2', 'grade 3', 'grade 4', 'grade 5', 'grade 6'],
+            default                    => null, // no grade-level restriction
+        };
+    }
+
+    /**
+     * Apply a grade-level filter to a Student query builder.
+     * - DCC Main: exclude all BED grade levels.
+     * - DCC BED sub-locations: restrict to only the grades they manage.
+     */
+    private function applyGradeFilter($query, string $location)
+    {
+        $bedGrades = [
+            'grade 1',
+            'grade 2',
+            'grade 3',
+            'grade 4',
+            'grade 5',
+            'grade 6',
+            'grade 7',
+            'grade 8',
+            'grade 9',
+            'grade 10',
+            'grade 11',
+            'grade 12',
+            'kinder 2',
+            'kindergarten 2',
+        ];
+
+        $allowed = $this->getAllowedGrades($location);
+
+        $hasGradeColumn = true;
+        try {
+            $model = $query->getModel();
+            if ($model && $model->getTable() === 'inouts') {
+                $hasGradeColumn = false;
+            }
+        } catch (\Throwable $e) {
+            // Fallback
+        }
+
+        if ($location === 'DCC Main') {
+            // Exclude all BED grade-level students (check both grade and year columns)
+            $query->where(function ($q) use ($bedGrades, $hasGradeColumn) {
+                if ($hasGradeColumn) {
+                    $q->where(function ($sub) use ($bedGrades) {
+                        $sub->whereNull('grade')
+                            ->orWhereNotIn(\DB::raw('LOWER(grade)'), $bedGrades);
+                    });
+                }
+                $q->where(function ($sub) use ($bedGrades) {
+                    $sub->whereNull('year')
+                        ->orWhereNotIn(\DB::raw('LOWER(year)'), $bedGrades);
+                });
+            });
+        } elseif ($allowed !== null) {
+            // Show ONLY students in the allowed grades (check grade or year)
+            $query->where(function ($q) use ($allowed, $hasGradeColumn) {
+                if ($hasGradeColumn) {
+                    $q->whereIn(\DB::raw('LOWER(grade)'), $allowed)
+                        ->orWhereIn(\DB::raw('LOWER(year)'), $allowed);
+                } else {
+                    $q->whereIn(\DB::raw('LOWER(year)'), $allowed);
+                }
+            });
+        }
+
+        return $query;
+    }
+
+    /**
+     * Resolve the campus value used for campus-column filtering.
+     * All DCC BED sub-locations belong to the 'DCC BED' campus.
+     */
+    private function getCampus(string $location): string
+    {
+        return str_starts_with($location, 'DCC BED') ? 'DCC BED' : $location;
+    }
+
     public function index()
     {
         $location = session('location');
@@ -23,9 +111,13 @@ class AdminController extends Controller
         $inoutQuery = \App\Models\Inout::query();
 
         if ($location && $location !== 'Master') {
-            $studentQuery->where('campus', $location);
-            $inoutQuery->where('campus', $location);
+            $campus = $this->getCampus($location);
+            $studentQuery->where('campus', $campus);
+            $inoutQuery->where('campus', $campus);
         }
+
+        $this->applyGradeFilter($studentQuery, $location ?? '');
+
 
         $totalStudents = $studentQuery->count();
         $activeNow = (clone $inoutQuery)->whereNull('time_out')->count();
@@ -51,8 +143,13 @@ class AdminController extends Controller
         }
 
         return view('admin.dashboard', compact(
-            'totalStudents', 'activeNow', 'totalLogs', 'recentLogs', 
-            'chartLabels', 'logCounts', 'borrowCounts'
+            'totalStudents',
+            'activeNow',
+            'totalLogs',
+            'recentLogs',
+            'chartLabels',
+            'logCounts',
+            'borrowCounts'
         ));
     }
 
@@ -62,8 +159,11 @@ class AdminController extends Controller
         $query = Student::query();
 
         if ($location && $location !== 'Master') {
-            $query->where('campus', $location);
+            $query->where('campus', $this->getCampus($location));
         }
+
+        $this->applyGradeFilter($query, $location ?? '');
+
 
         // Search Filter (Global)
         if ($search = $request->input('search')) {
@@ -127,10 +227,40 @@ class AdminController extends Controller
 
         $students = $query->paginate(10);
 
-        // Get unique values for filters
+        // Get unique values for filters - scoped to what this admin can see
         $departments = Student::distinct()->whereNotNull('department')->pluck('department')->toArray();
-        $years = Student::distinct()->whereNotNull('year')->pluck('year')->sort()->toArray();
-        $grades = Student::distinct()->whereNotNull('grade')->pluck('grade')->toArray();
+
+        $bedGrades = [
+            'grade 1',
+            'grade 2',
+            'grade 3',
+            'grade 4',
+            'grade 5',
+            'grade 6',
+            'grade 7',
+            'grade 8',
+            'grade 9',
+            'grade 10',
+            'grade 11',
+            'grade 12',
+            'kinder 2',
+            'kindergarten 2',
+        ];
+
+        $yearsQuery = Student::distinct()->whereNotNull('year');
+        $gradesQuery = Student::distinct()->whereNotNull('grade');
+        $allowed = $this->getAllowedGrades($location ?? '');
+
+        if ($location === 'DCC Main') {
+            $yearsQuery->whereNotIn(\DB::raw('LOWER(year)'), $bedGrades);
+            $gradesQuery->whereNotIn(\DB::raw('LOWER(grade)'), $bedGrades);
+        } elseif ($allowed !== null) {
+            $yearsQuery->whereIn(\DB::raw('LOWER(year)'), $allowed);
+            $gradesQuery->whereIn(\DB::raw('LOWER(grade)'), $allowed);
+        }
+
+        $years  = $yearsQuery->pluck('year')->sort()->toArray();
+        $grades = $gradesQuery->pluck('grade')->toArray();
 
         return view('admin.student-data', compact('students', 'departments', 'years', 'grades'));
     }
@@ -138,7 +268,10 @@ class AdminController extends Controller
     // BED Campus account
     public function storeStudent(Request $request)
     {
-        if (session('location') == 'DCC BED') {
+        $loc = session('location', '');
+        $isBed = str_starts_with($loc, 'DCC BED');
+
+        if ($isBed) {
             $data = $request->validate([
                 'sid' => 'required|string|unique:students|max:255',
                 'rfid' => 'nullable|string|unique:students|max:255',
@@ -169,7 +302,7 @@ class AdminController extends Controller
         // The validated data is already assigned to $data in the conditional blocks.
 
         if (session('location') && session('location') !== 'Master') {
-            $data['campus'] = session('location');
+            $data['campus'] = $this->getCampus(session('location'));
         }
 
         Student::create($data);
@@ -179,7 +312,10 @@ class AdminController extends Controller
 
     public function updateStudent(Request $request, Student $student)
     {
-        if (session('location') == 'DCC BED') {
+        $loc = session('location', '');
+        $isBed = str_starts_with($loc, 'DCC BED');
+
+        if ($isBed) {
             $data = $request->validate([
                 'sid' => 'required|string|max:255|unique:students,sid,' . $student->id,
                 'rfid' => 'nullable|string|max:255|unique:students,rfid,' . $student->id,
@@ -222,8 +358,10 @@ class AdminController extends Controller
         $query = \App\Models\Inout::query();
 
         if ($location && $location !== 'Master') {
-            $query->where('campus', $location);
+            $query->where('campus', $this->getCampus($location));
         }
+
+        $this->applyGradeFilter($query, $location ?? '');
 
         // Search Filter (Global)
         if ($search = $request->input('search')) {
@@ -294,8 +432,10 @@ class AdminController extends Controller
 
             // Apply location filter
             if ($location && $location !== 'Master') {
-                $query->where('campus', $location);
+                $query->where('campus', $this->getCampus($location));
             }
+
+            $this->applyGradeFilter($query, $location ?? '');
 
             // Apply date range filter
             $query->whereBetween('time_in', [
@@ -313,8 +453,43 @@ class AdminController extends Controller
         }
 
         // Get unique courses and years for the student report filters
-        $courses = Student::distinct()->whereNotNull('course')->where('course', '!=', 'N/A')->pluck('course')->sort()->toArray();
-        $years = Student::distinct()->whereNotNull('year')->where('year', '!=', 'N/A')->pluck('year')->sort()->toArray();
+        $coursesQuery = Student::distinct()->whereNotNull('course')->where('course', '!=', 'N/A');
+        $yearsQuery = Student::distinct()->whereNotNull('year')->where('year', '!=', 'N/A');
+
+        if ($location && $location !== 'Master') {
+            $coursesQuery->where('campus', $this->getCampus($location));
+            $yearsQuery->where('campus', $this->getCampus($location));
+        }
+
+        $bedGrades = [
+            'grade 1',
+            'grade 2',
+            'grade 3',
+            'grade 4',
+            'grade 5',
+            'grade 6',
+            'grade 7',
+            'grade 8',
+            'grade 9',
+            'grade 10',
+            'grade 11',
+            'grade 12',
+            'kinder 2',
+            'kindergarten 2',
+        ];
+
+        $allowed = $this->getAllowedGrades($location ?? '');
+
+        if ($location === 'DCC Main') {
+            $coursesQuery->whereNotIn(\DB::raw('LOWER(course)'), $bedGrades);
+            $yearsQuery->whereNotIn(\DB::raw('LOWER(year)'), $bedGrades);
+        } elseif ($allowed !== null) {
+            $coursesQuery->whereIn(\DB::raw('LOWER(course)'), $allowed);
+            $yearsQuery->whereIn(\DB::raw('LOWER(year)'), $allowed);
+        }
+
+        $courses = $coursesQuery->pluck('course')->sort()->toArray();
+        $years = $yearsQuery->pluck('year')->sort()->toArray();
 
         // Return JSON for AJAX preview requests
         if ($request->ajax()) {
@@ -330,8 +505,11 @@ class AdminController extends Controller
         $query = Student::query();
 
         if ($location && $location !== 'Master') {
-            $query->where('campus', $location);
+            $query->where('campus', $this->getCampus($location));
         }
+
+        $this->applyGradeFilter($query, $location ?? '');
+
 
         if ($request->filled('course')) {
             $query->where('course', $request->course);
@@ -341,7 +519,9 @@ class AdminController extends Controller
             $query->where('year', $request->year);
         }
 
-        $students = $query->latest()->get()->map(function ($student) {
+        $paginator = $query->latest()->paginate(10);
+
+        $paginator->getCollection()->transform(function ($student) {
             return [
                 'sid' => $student->sid,
                 'fullname' => "{$student->firstname} " . ($student->middlename ? "{$student->middlename} " : "") . "{$student->lastname}",
@@ -351,7 +531,7 @@ class AdminController extends Controller
             ];
         });
 
-        return response()->json($students);
+        return response()->json($paginator);
     }
 
     public function users()
@@ -426,8 +606,11 @@ class AdminController extends Controller
             $query = Student::query();
 
             if ($location && $location !== 'Master') {
-                $query->where('campus', $location);
+                $query->where('campus', $this->getCampus($location));
             }
+
+            $this->applyGradeFilter($query, $location ?? '');
+
 
             if ($request->filled('course')) {
                 $query->where('course', $request->course);
@@ -491,8 +674,10 @@ class AdminController extends Controller
         $query = \App\Models\Inout::query();
 
         if ($location && $location !== 'Master') {
-            $query->where('campus', $location);
+            $query->where('campus', $this->getCampus($location));
         }
+
+        $this->applyGradeFilter($query, $location ?? '');
 
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
@@ -559,7 +744,7 @@ class AdminController extends Controller
         $query = Employee::query();
 
         if ($location && $location !== 'Master') {
-            $query->where('campus', $location);
+            $query->where('campus', $this->getCampus($location));
         }
 
         // Search Filter (Global)
@@ -636,7 +821,7 @@ class AdminController extends Controller
         ]);
 
         if (session('location') && session('location') !== 'Master') {
-            $data['campus'] = session('location');
+            $data['campus'] = $this->getCampus(session('location'));
         }
 
         Employee::create($data);
@@ -675,7 +860,7 @@ class AdminController extends Controller
         $query = EmployeeLog::query();
 
         if ($location && $location !== 'Master') {
-            $query->where('campus', $location);
+            $query->where('campus', $this->getCampus($location));
         }
 
         // Search Filter (Global)
