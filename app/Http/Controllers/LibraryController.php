@@ -15,7 +15,7 @@ class LibraryController extends Controller
     // ----- BOOKS CRUD -----
     public function booksIndex()
     {
-        $books = Book::orderBy('created_at', 'desc')->get();
+        $books = Book::orderBy('created_at', 'desc')->paginate(10);
         $shelves = Shelf::orderBy('shelf_number')->get();
         return view('admin.library.books', compact('books', 'shelves'));
     }
@@ -57,7 +57,7 @@ class LibraryController extends Controller
             'call_number' => 'required|string',
             'location' => 'nullable|string',
             'shelf_number' => 'nullable|string',
-            'status' => 'required|in:Available,Borrowed'
+            'status' => 'required|in:Available,Borrowed,available,borrowed'
         ]);
 
         $book->update($request->only('accession_no', 'barcode', 'title', 'author', 'call_number', 'location', 'shelf_number', 'status'));
