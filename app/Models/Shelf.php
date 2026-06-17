@@ -8,7 +8,8 @@ class Shelf extends Model
 {
     protected $fillable = [
         'shelf_number',
-        'description'
+        'description',
+        'campus'
     ];
 
     public function books()
