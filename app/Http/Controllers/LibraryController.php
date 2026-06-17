@@ -15,14 +15,24 @@ class LibraryController extends Controller
     // ----- BOOKS CRUD -----
     public function booksIndex()
     {
-        $books = Book::orderBy('created_at', 'desc')->paginate(10);
-        $shelves = Shelf::orderBy('shelf_number')->get();
+        $campuses = $this->getBookCampusFilter();
+        $booksQuery = Book::orderBy('created_at', 'desc');
+        $shelvesQuery = Shelf::orderBy('shelf_number');
+
+        if ($campuses !== null) {
+            $booksQuery->whereIn('campus', $campuses);
+            $shelvesQuery->whereIn('campus', $campuses);
+        }
+
+        $books = $booksQuery->paginate(10);
+        $shelves = $shelvesQuery->get();
         return view('admin.library.books', compact('books', 'shelves'));
     }
 
     public function booksStore(Request $request)
     {
-        $request->validate([
+        $location = session('location');
+        $rules = [
             'accession_no' => 'required|string|unique:books,accession_no',
             'barcode' => 'nullable|string|unique:books,barcode',
             'title' => 'required|string',
@@ -30,7 +40,15 @@ class LibraryController extends Controller
             'call_number' => 'required|string',
             'location' => 'nullable|string',
             'shelf_number' => 'nullable|string'
-        ]);
+        ];
+
+        if ($location === 'Master' || $location === 'DCC BED') {
+            $rules['campus'] = 'required|string|in:DCC Main,DCC BED Highschool,DCC BED SeniorHighSchool,DCC BED Elementary';
+        }
+
+        $request->validate($rules);
+
+        $campus = ($location === 'Master' || $location === 'DCC BED') ? $request->campus : $location;
 
         Book::create([
             'accession_no' => $request->accession_no,
@@ -40,6 +58,7 @@ class LibraryController extends Controller
             'call_number' => $request->call_number,
             'location' => $request->location,
             'shelf_number' => $request->shelf_number,
+            'campus' => $campus,
             'status' => 'Available'
         ]);
 
@@ -49,7 +68,8 @@ class LibraryController extends Controller
     public function booksUpdate(Request $request, $accession_no)
     {
         $book = Book::findOrFail($accession_no);
-        $request->validate([
+        $location = session('location');
+        $rules = [
             'accession_no' => 'required|string|unique:books,accession_no,' . $accession_no . ',accession_no',
             'barcode' => 'nullable|string|unique:books,barcode,' . $accession_no . ',accession_no',
             'title' => 'required|string',
@@ -58,9 +78,20 @@ class LibraryController extends Controller
             'location' => 'nullable|string',
             'shelf_number' => 'nullable|string',
             'status' => 'required|in:Available,Borrowed,available,borrowed'
-        ]);
+        ];
 
-        $book->update($request->only('accession_no', 'barcode', 'title', 'author', 'call_number', 'location', 'shelf_number', 'status'));
+        if ($location === 'Master' || $location === 'DCC BED') {
+            $rules['campus'] = 'required|string|in:DCC Main,DCC BED Highschool,DCC BED SeniorHighSchool,DCC BED Elementary';
+        }
+
+        $request->validate($rules);
+
+        $updateData = $request->only('accession_no', 'barcode', 'title', 'author', 'call_number', 'location', 'shelf_number', 'status');
+        if ($location === 'Master' || $location === 'DCC BED') {
+            $updateData['campus'] = $request->campus;
+        }
+
+        $book->update($updateData);
         return response()->json(['success' => true, 'message' => 'Book updated successfully']);
     }
 
@@ -98,9 +129,17 @@ class LibraryController extends Controller
             return response()->json(['success' => false, 'message' => 'Borrower not found in Students or Employees.'], 404);
         }
 
-        $book = Book::where('barcode', $request->accession_no)
-            ->orWhere('accession_no', $request->accession_no)
-            ->first();
+        $campuses = $this->getBookCampusFilter();
+        $bookQuery = Book::where(function ($q) use ($request) {
+            $q->where('barcode', $request->accession_no)
+              ->orWhere('accession_no', $request->accession_no);
+        });
+
+        if ($campuses !== null) {
+            $bookQuery->whereIn('campus', $campuses);
+        }
+
+        $book = $bookQuery->first();
 
         if (!$book) {
             return response()->json(['success' => false, 'message' => 'Book not found (by barcode or accession no).'], 404);
@@ -171,9 +210,17 @@ class LibraryController extends Controller
             'accession_no' => 'required|string'
         ]);
 
-        $book = Book::where('accession_no', $request->accession_no)
-            ->orWhere('barcode', $request->accession_no)
-            ->first();
+        $campuses = $this->getBookCampusFilter();
+        $bookQuery = Book::where(function ($q) use ($request) {
+            $q->where('accession_no', $request->accession_no)
+              ->orWhere('barcode', $request->accession_no);
+        });
+
+        if ($campuses !== null) {
+            $bookQuery->whereIn('campus', $campuses);
+        }
+
+        $book = $bookQuery->first();
 
         if (!$book) {
             return response()->json(['success' => false, 'message' => 'Book not found.'], 404);
@@ -217,36 +264,70 @@ class LibraryController extends Controller
     // ----- HISTORY -----
     public function historyIndex()
     {
-        $transactions = Transaction::with(['book', 'borrower'])->orderBy('created_at', 'desc')->get();
+        $campuses = $this->getBookCampusFilter();
+        $query = Transaction::with(['book', 'borrower'])->orderBy('created_at', 'desc');
+
+        if ($campuses !== null) {
+            $query->whereHas('book', function ($q) use ($campuses) {
+                $q->whereIn('campus', $campuses);
+            });
+        }
+
+        $transactions = $query->get();
         return view('admin.library.history', compact('transactions'));
     }
 
     // ----- REPORTS -----
     public function reportsIndex()
     {
+        $campuses = $this->getBookCampusFilter();
+
         // Monthly report
-        $monthlyReport = Transaction::selectRaw('MONTHNAME(date_borrowed) as month,
+        $monthlyQuery = Transaction::selectRaw('MONTHNAME(date_borrowed) as month,
             COUNT(*) as total_borrowed,
             SUM(CASE WHEN date_returned IS NOT NULL THEN 1 ELSE 0 END) as total_returned,
-            SUM(CASE WHEN status != "Returned" AND due_date < CURDATE() THEN 1 ELSE 0 END) as total_overdue')
-            ->groupBy('month')
-            ->get();
+            SUM(CASE WHEN status != "Returned" AND due_date < CURDATE() THEN 1 ELSE 0 END) as total_overdue');
 
         // Top borrowed books
-        $topBooks = Transaction::selectRaw('accession_no, COUNT(*) as times_borrowed')
+        $topBooksQuery = Transaction::selectRaw('accession_no, COUNT(*) as times_borrowed')
             ->with('book')
             ->groupBy('accession_no')
             ->orderByDesc('times_borrowed')
-            ->limit(10)
-            ->get();
+            ->limit(10);
 
         // Top student borrowers
-        $topStudents = Transaction::selectRaw('borrower_id, COUNT(*) as total_borrowed')
+        $topStudentsQuery = Transaction::selectRaw('borrower_id, COUNT(*) as total_borrowed')
             ->where('borrower_type', 'App\Models\Student')
             ->groupBy('borrower_id')
             ->orderByDesc('total_borrowed')
-            ->limit(10)
-            ->get()
+            ->limit(10);
+
+        // Top employee borrowers
+        $topEmployeesQuery = Transaction::selectRaw('borrower_id, COUNT(*) as total_borrowed')
+            ->whereIn('borrower_type', ['App\Models\Employee', 'App\\Models\\Employee'])
+            ->groupBy('borrower_id')
+            ->orderByDesc('total_borrowed')
+            ->limit(10);
+
+        if ($campuses !== null) {
+            $monthlyQuery->whereHas('book', function ($q) use ($campuses) {
+                $q->whereIn('campus', $campuses);
+            });
+            $topBooksQuery->whereHas('book', function ($q) use ($campuses) {
+                $q->whereIn('campus', $campuses);
+            });
+            $topStudentsQuery->whereHas('book', function ($q) use ($campuses) {
+                $q->whereIn('campus', $campuses);
+            });
+            $topEmployeesQuery->whereHas('book', function ($q) use ($campuses) {
+                $q->whereIn('campus', $campuses);
+            });
+        }
+
+        $monthlyReport = $monthlyQuery->groupBy('month')->get();
+        $topBooks = $topBooksQuery->get();
+
+        $topStudents = $topStudentsQuery->get()
             ->map(function ($t) {
                 $student = Student::where('sid', $t->borrower_id)
                     ->orWhere('rfid', $t->borrower_id)
@@ -257,13 +338,7 @@ class LibraryController extends Controller
             ->filter(fn($t) => $t->borrower !== null)
             ->values();
 
-        // Top employee borrowers
-        $topEmployees = Transaction::selectRaw('borrower_id, COUNT(*) as total_borrowed')
-            ->whereIn('borrower_type', ['App\Models\Employee', 'App\\Models\\Employee'])
-            ->groupBy('borrower_id')
-            ->orderByDesc('total_borrowed')
-            ->limit(10)
-            ->get()
+        $topEmployees = $topEmployeesQuery->get()
             ->map(function ($t) {
                 $employee = Employee::where('id', $t->borrower_id)
                     ->orWhere('rfid', $t->borrower_id)
@@ -285,21 +360,46 @@ class LibraryController extends Controller
     public function reportsExport()
     {
         $filename = 'library_report_' . now()->format('Y-m-d') . '.xls';
+        $campuses = $this->getBookCampusFilter();
 
         // ── Fetch all data ──────────────────────────────────────────────
-        $monthly = Transaction::selectRaw('MONTHNAME(date_borrowed) as month,
+        $monthlyQuery = Transaction::selectRaw('MONTHNAME(date_borrowed) as month,
             COUNT(*) as total_borrowed,
             SUM(CASE WHEN date_returned IS NOT NULL THEN 1 ELSE 0 END) as total_returned,
-            SUM(CASE WHEN status != "Returned" AND due_date < CURDATE() THEN 1 ELSE 0 END) as total_overdue')
-            ->groupBy('month')->get();
+            SUM(CASE WHEN status != "Returned" AND due_date < CURDATE() THEN 1 ELSE 0 END) as total_overdue');
 
-        $books = Transaction::selectRaw('accession_no, COUNT(*) as times_borrowed')
-            ->with('book')->groupBy('accession_no')->orderByDesc('times_borrowed')->limit(10)->get();
+        $booksQuery = Transaction::selectRaw('accession_no, COUNT(*) as times_borrowed')
+            ->with('book')->groupBy('accession_no')->orderByDesc('times_borrowed')->limit(10);
+
+        $studentTxnsQuery = Transaction::selectRaw('borrower_id, COUNT(*) as total_borrowed')
+            ->where('borrower_type', 'App\Models\Student')
+            ->groupBy('borrower_id')->orderByDesc('total_borrowed')->limit(10);
+
+        $employeeTxnsQuery = Transaction::selectRaw('borrower_id, COUNT(*) as total_borrowed')
+            ->where('borrower_type', 'like', '%Employee%')
+            ->groupBy('borrower_id')->orderByDesc('total_borrowed')->limit(10);
+
+        if ($campuses !== null) {
+            $monthlyQuery->whereHas('book', function ($q) use ($campuses) {
+                $q->whereIn('campus', $campuses);
+            });
+            $booksQuery->whereHas('book', function ($q) use ($campuses) {
+                $q->whereIn('campus', $campuses);
+            });
+            $studentTxnsQuery->whereHas('book', function ($q) use ($campuses) {
+                $q->whereIn('campus', $campuses);
+            });
+            $employeeTxnsQuery->whereHas('book', function ($q) use ($campuses) {
+                $q->whereIn('campus', $campuses);
+            });
+        }
+
+        $monthly = $monthlyQuery->groupBy('month')->get();
+        $books = $booksQuery->get();
+        $studentTxns = $studentTxnsQuery->get();
+        $employeeTxns = $employeeTxnsQuery->get();
 
         $studentRows = [];
-        $studentTxns = Transaction::selectRaw('borrower_id, COUNT(*) as total_borrowed')
-            ->where('borrower_type', 'App\Models\Student')
-            ->groupBy('borrower_id')->orderByDesc('total_borrowed')->limit(10)->get();
         $rank = 1;
         foreach ($studentTxns as $t) {
             $s = Student::where('sid', $t->borrower_id)->orWhere('rfid', $t->borrower_id)->first();
@@ -309,9 +409,6 @@ class LibraryController extends Controller
         }
 
         $employeeRows = [];
-        $employeeTxns = Transaction::selectRaw('borrower_id, COUNT(*) as total_borrowed')
-            ->where('borrower_type', 'like', '%Employee%')
-            ->groupBy('borrower_id')->orderByDesc('total_borrowed')->limit(10)->get();
         $rank = 1;
         foreach ($employeeTxns as $t) {
             $e = Employee::where('id', $t->borrower_id)->orWhere('rfid', $t->borrower_id)->first();
@@ -427,18 +524,38 @@ class LibraryController extends Controller
     // ----- SHELVES CRUD -----
     public function shelvesIndex()
     {
-        $shelves = Shelf::orderBy('shelf_number')->get();
+        $campuses = $this->getBookCampusFilter();
+        $query = Shelf::orderBy('shelf_number');
+
+        if ($campuses !== null) {
+            $query->whereIn('campus', $campuses);
+        }
+
+        $shelves = $query->get();
         return view('admin.library.shelves', compact('shelves'));
     }
 
     public function shelvesStore(Request $request)
     {
-        $request->validate([
+        $location = session('location');
+        $rules = [
             'shelf_number' => 'required|string|unique:shelves,shelf_number',
             'description'  => 'nullable|string'
-        ]);
+        ];
 
-        Shelf::create($request->only('shelf_number', 'description'));
+        if ($location === 'Master' || $location === 'DCC BED') {
+            $rules['campus'] = 'required|string|in:DCC Main,DCC BED Highschool,DCC BED SeniorHighSchool,DCC BED Elementary';
+        }
+
+        $request->validate($rules);
+
+        $campus = ($location === 'Master' || $location === 'DCC BED') ? $request->campus : $location;
+
+        Shelf::create([
+            'shelf_number' => $request->shelf_number,
+            'description'  => $request->description,
+            'campus'       => $campus
+        ]);
 
         return response()->json(['success' => true, 'message' => 'Shelf added successfully']);
     }
@@ -446,12 +563,24 @@ class LibraryController extends Controller
     public function shelvesUpdate(Request $request, $id)
     {
         $shelf = Shelf::findOrFail($id);
-        $request->validate([
+        $location = session('location');
+        $rules = [
             'shelf_number' => 'required|string|unique:shelves,shelf_number,' . $id,
             'description'  => 'nullable|string'
-        ]);
+        ];
 
-        $shelf->update($request->only('shelf_number', 'description'));
+        if ($location === 'Master' || $location === 'DCC BED') {
+            $rules['campus'] = 'required|string|in:DCC Main,DCC BED Highschool,DCC BED SeniorHighSchool,DCC BED Elementary';
+        }
+
+        $request->validate($rules);
+
+        $updateData = $request->only('shelf_number', 'description');
+        if ($location === 'Master' || $location === 'DCC BED') {
+            $updateData['campus'] = $request->campus;
+        }
+
+        $shelf->update($updateData);
 
         return response()->json(['success' => true, 'message' => 'Shelf updated successfully']);
     }
@@ -460,5 +589,25 @@ class LibraryController extends Controller
     {
         Shelf::findOrFail($id)->delete();
         return response()->json(['success' => true, 'message' => 'Shelf deleted successfully']);
+    }
+
+    /**
+     * Get allowed campuses for books/shelves based on session location.
+     * Returns null if no filtering should be applied (Master).
+     *
+     * @return array|null
+     */
+    private function getBookCampusFilter(): ?array
+    {
+        $location = session('location');
+        return match ($location) {
+            'DCC Main' => ['DCC Main'],
+            'DCC BED Highschool' => ['DCC BED Highschool'],
+            'DCC BED SeniorHighSchool' => ['DCC BED SeniorHighSchool'],
+            'DCC BED Elementary' => ['DCC BED Elementary'],
+            'DCC BED' => ['DCC BED Highschool', 'DCC BED SeniorHighSchool', 'DCC BED Elementary'],
+            'Master' => null, // no filter (shows all campuses including NULL)
+            default => [], // fallback empty array
+        };
     }
 }
