@@ -18,6 +18,7 @@ class Book extends Model
         'call_number',
         'location',
         'shelf_number',
+        'campus',
         'status'
     ];
 
