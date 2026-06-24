@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Book extends Model
 {
+    protected $table = 'books_main';
     protected $primaryKey = 'accession_no';
     public $incrementing = false;
     protected $keyType = 'string';
