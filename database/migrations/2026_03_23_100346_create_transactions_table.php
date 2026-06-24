@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('borrower_id');
             $table->string('borrower_type');
             $table->string('accession_no');
-            $table->foreign('accession_no')->references('accession_no')->on('books')->onDelete('cascade');
+            $table->foreign('accession_no')->references('accession_no')->on('books_main')->onDelete('cascade');
             $table->date('date_borrowed');
             $table->date('due_date');
             $table->date('date_returned')->nullable();
