@@ -547,7 +547,7 @@ class AdminController extends Controller
             'username' => 'required|string|max:255|unique:users',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8',
-            'role' => 'required|string|in:Admin,User',
+            'role' => 'required|string|in:User,Admin,Master,Admin TED,Admin BED,Admin BEDHS,Admin BEDSHS,Admin BEDELEM',
         ]);
 
         User::create([
@@ -568,7 +568,7 @@ class AdminController extends Controller
             'username' => 'required|string|max:255|unique:users,username,' . $user->id,
             'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
             'password' => 'nullable|string|min:8',
-            'role' => 'required|string|in:Admin,User',
+            'role' => 'required|string|in:User,Admin,Master,Admin TED,Admin BED,Admin BEDHS,Admin BEDSHS,Admin BEDELEM',
         ]);
 
         $user->update([
