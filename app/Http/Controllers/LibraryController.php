@@ -13,15 +13,69 @@ use Carbon\Carbon;
 class LibraryController extends Controller
 {
     // ----- BOOKS CRUD -----
-    public function booksIndex()
+    public function booksIndex(Request $request)
     {
         $campuses = $this->getBookCampusFilter();
-        $booksQuery = Book::orderBy('created_at', 'desc');
+        $booksQuery = Book::query();
         $shelvesQuery = Shelf::orderBy('shelf_number');
 
         if ($campuses !== null) {
             $booksQuery->whereIn('campus', $campuses);
             $shelvesQuery->whereIn('campus', $campuses);
+        }
+
+        // Global Search
+        if ($search = $request->input('search')) {
+            $booksQuery->where(function ($q) use ($search) {
+                $q->where('accession_no', 'like', "%{$search}%")
+                  ->orWhere('barcode', 'like', "%{$search}%")
+                  ->orWhere('title', 'like', "%{$search}%")
+                  ->orWhere('author', 'like', "%{$search}%")
+                  ->orWhere('call_number', 'like', "%{$search}%")
+                  ->orWhere('location', 'like', "%{$search}%")
+                  ->orWhere('campus', 'like', "%{$search}%")
+                  ->orWhere('shelf_number', 'like', "%{$search}%")
+                  ->orWhere('status', 'like', "%{$search}%");
+            });
+        }
+
+        // Column-specific Filters
+        if ($request->filled('accession_no')) {
+            $booksQuery->where('accession_no', 'like', "%{$request->accession_no}%");
+        }
+        if ($request->filled('barcode')) {
+            $booksQuery->where('barcode', 'like', "%{$request->barcode}%");
+        }
+        if ($request->filled('title')) {
+            $booksQuery->where('title', 'like', "%{$request->title}%");
+        }
+        if ($request->filled('author')) {
+            $booksQuery->where('author', 'like', "%{$request->author}%");
+        }
+        if ($request->filled('call_number')) {
+            $booksQuery->where('call_number', 'like', "%{$request->call_number}%");
+        }
+        if ($request->filled('location')) {
+            $booksQuery->where('location', 'like', "%{$request->location}%");
+        }
+        if ($request->filled('campus')) {
+            $booksQuery->where('campus', $request->campus);
+        }
+        if ($request->filled('shelf_number')) {
+            $booksQuery->where('shelf_number', $request->shelf_number);
+        }
+        if ($request->filled('status')) {
+            $booksQuery->where('status', $request->status);
+        }
+
+        // Sorting
+        $sort = $request->input('sort', 'created_at');
+        $direction = $request->input('direction', 'desc');
+        $allowedSorts = ['accession_no', 'barcode', 'title', 'author', 'call_number', 'location', 'campus', 'shelf_number', 'status', 'created_at'];
+        if (in_array($sort, $allowedSorts)) {
+            $booksQuery->orderBy($sort, $direction);
+        } else {
+            $booksQuery->latest();
         }
 
         $books = $booksQuery->paginate(10);
@@ -31,10 +85,9 @@ class LibraryController extends Controller
 
     public function booksStore(Request $request)
     {
-        $location = session('location');
         $rules = [
-            'accession_no' => 'required|string|unique:books,accession_no',
-            'barcode' => 'nullable|string|unique:books,barcode',
+            'accession_no' => 'required|string|unique:books_main,accession_no',
+            'barcode' => 'nullable|string|unique:books_main,barcode',
             'title' => 'required|string',
             'author' => 'required|string',
             'call_number' => 'required|string',
@@ -42,13 +95,7 @@ class LibraryController extends Controller
             'shelf_number' => 'nullable|string'
         ];
 
-        if ($location === 'Master' || $location === 'DCC BED') {
-            $rules['campus'] = 'required|string|in:DCC Main,DCC BED Highschool,DCC BED SeniorHighSchool,DCC BED Elementary';
-        }
-
         $request->validate($rules);
-
-        $campus = ($location === 'Master' || $location === 'DCC BED') ? $request->campus : $location;
 
         Book::create([
             'accession_no' => $request->accession_no,
@@ -58,7 +105,7 @@ class LibraryController extends Controller
             'call_number' => $request->call_number,
             'location' => $request->location,
             'shelf_number' => $request->shelf_number,
-            'campus' => $campus,
+            'campus' => 'DCC Main',
             'status' => 'Available'
         ]);
 
@@ -68,10 +115,9 @@ class LibraryController extends Controller
     public function booksUpdate(Request $request, $accession_no)
     {
         $book = Book::findOrFail($accession_no);
-        $location = session('location');
         $rules = [
-            'accession_no' => 'required|string|unique:books,accession_no,' . $accession_no . ',accession_no',
-            'barcode' => 'nullable|string|unique:books,barcode,' . $accession_no . ',accession_no',
+            'accession_no' => 'required|string|unique:books_main,accession_no,' . $accession_no . ',accession_no',
+            'barcode' => 'nullable|string|unique:books_main,barcode,' . $accession_no . ',accession_no',
             'title' => 'required|string',
             'author' => 'required|string',
             'call_number' => 'required|string',
@@ -80,16 +126,10 @@ class LibraryController extends Controller
             'status' => 'required|in:Available,Borrowed,available,borrowed'
         ];
 
-        if ($location === 'Master' || $location === 'DCC BED') {
-            $rules['campus'] = 'required|string|in:DCC Main,DCC BED Highschool,DCC BED SeniorHighSchool,DCC BED Elementary';
-        }
-
         $request->validate($rules);
 
         $updateData = $request->only('accession_no', 'barcode', 'title', 'author', 'call_number', 'location', 'shelf_number', 'status');
-        if ($location === 'Master' || $location === 'DCC BED') {
-            $updateData['campus'] = $request->campus;
-        }
+        $updateData['campus'] = 'DCC Main';
 
         $book->update($updateData);
         return response()->json(['success' => true, 'message' => 'Book updated successfully']);
