@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('books', function (Blueprint $table) {
+        Schema::table('books_main', function (Blueprint $table) {
             $table->string('shelf_number')->nullable()->after('location');
         });
     }
@@ -21,7 +21,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('books', function (Blueprint $table) {
+        Schema::table('books_main', function (Blueprint $table) {
             $table->dropColumn('shelf_number');
         });
     }
