@@ -572,7 +572,15 @@ class LibraryController extends Controller
         }
 
         $shelves = $query->get();
-        return view('admin.library.shelves', compact('shelves'));
+
+        // Route to the view matching the logged-in admin's campus scope.
+        $view = match (session('location')) {
+            'Master'   => 'admin.library.shelves_combined',
+            'DCC Main' => 'admin.library.shelves_ted',
+            default    => 'admin.library.shelves_bed', // DCC BED + the 3 BED sub-campuses
+        };
+
+        return view($view, compact('shelves'));
     }
 
     public function shelvesStore(Request $request)
