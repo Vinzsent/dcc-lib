@@ -19,7 +19,7 @@ return new class extends Migration
         // Migrate data
         $transactions = DB::table('transactions')->get();
         foreach ($transactions as $txn) {
-            $book = DB::table('books')->where('accession_no', $txn->accession_no)->first();
+            $book = DB::table('books_main')->where('accession_no', $txn->accession_no)->first();
             if ($book) {
                 DB::table('transactions')->where('id', $txn->id)->update(['book_id' => $book->id]);
             }
@@ -28,7 +28,7 @@ return new class extends Migration
         Schema::table('transactions', function (Blueprint $table) {
             $table->dropForeign(['accession_no']);
             $table->dropColumn('accession_no');
-            $table->foreign('book_id')->references('id')->on('books')->onDelete('cascade')->onUpdate('cascade');
+            $table->foreign('book_id')->references('id')->on('books_main')->onDelete('cascade')->onUpdate('cascade');
         });
     }
 
@@ -44,7 +44,7 @@ return new class extends Migration
         // Reverse data
         $transactions = DB::table('transactions')->get();
         foreach ($transactions as $txn) {
-            $book = DB::table('books')->where('id', $txn->book_id)->first();
+            $book = DB::table('books_main')->where('id', $txn->book_id)->first();
             if ($book) {
                 DB::table('transactions')->where('id', $txn->id)->update(['accession_no' => $book->accession_no]);
             }
@@ -53,7 +53,7 @@ return new class extends Migration
         Schema::table('transactions', function (Blueprint $table) {
             $table->dropForeign(['book_id']);
             $table->dropColumn('book_id');
-            $table->foreign('accession_no')->references('accession_no')->on('books')->onDelete('cascade');
+            $table->foreign('accession_no')->references('accession_no')->on('books_main')->onDelete('cascade');
         });
     }
 };
