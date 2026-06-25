@@ -221,8 +221,12 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                     <select name="location" id="location" required>
+                        <option value="">Select Location</option>
                         <option value="DCC Main">DCC Main</option>
-                        <option value="DCC BED">DCC BED</option>
+                        <option value="DCC BED">DCC BED (All)</option>
+                        <option value="DCC BED SeniorHighSchool">DCC BED - Senior High School</option>
+                        <option value="DCC BED Highschool">DCC BED - High School</option>
+                        <option value="DCC BED Elementary">DCC BED - Elementary</option>
                         <option value="Master">Master</option>
                     </select>
                 </div>

@@ -91,7 +91,7 @@
                             </a>
                         </th>
 
-                        @if (session('location') != 'DCC BED')
+                        @if (!str_starts_with(session('location'), 'DCC BED'))
                             <th class="py-3 px-6">
                                 <a href="{{ request()->fullUrlWithQuery(['sort' => 'department', 'direction' => request('sort') == 'department' && request('direction') == 'asc' ? 'desc' : 'asc']) }}" class="flex items-center gap-1 group">
                                     Department
@@ -112,7 +112,7 @@
                             </th>
                         @endif
 
-                        @if(session('location') == 'DCC BED')
+                        @if(str_starts_with(session('location'), 'DCC BED'))
                         <th class="py-3 px-6">
                             <a href="{{ request()->fullUrlWithQuery(['sort' => 'grade', 'direction' => request('sort') == 'grade' && request('direction') == 'asc' ? 'desc' : 'asc']) }}" class="flex items-center gap-1 group">
                                 Grade
@@ -147,7 +147,7 @@
                             <input type="text" name="lastname" value="{{ request('lastname') }}" placeholder="Last" class="text-xs border border-gray-300 rounded p-1 w-full focus:ring-1 focus:ring-green-500 outline-none">
                         </td>
                         
-                        @if (session('location') != 'DCC BED')
+                        @if (!str_starts_with(session('location'), 'DCC BED'))
                             <td class="py-2 px-6">
                                 <select name="department" onchange="this.form.submit()" class="text-xs border border-gray-300 rounded p-1 w-full focus:ring-1 focus:ring-green-500 outline-none">
                                     <option value="">All</option>
@@ -169,7 +169,7 @@
                             </td>
                         @endif
 
-                        @if(session('location') == 'DCC BED')
+                        @if(str_starts_with(session('location'), 'DCC BED'))
                             <td class="py-2 px-6">
                                 <select name="grade" onchange="this.form.submit()" class="text-xs border border-gray-300 rounded p-1 w-full focus:ring-1 focus:ring-green-500 outline-none">
                                     <option value="">Grade</option>
@@ -189,7 +189,7 @@
                     </tr>
                 </thead>
                 <tbody class="text-gray-600 text-sm font-light">
-                    @forelse ($students as $student)
+                    @forelse($students as $student)
                     <tr class="border-b border-gray-200 hover:bg-gray-50 transition">
                         <td class="py-4 px-6 font-medium text-gray-800">
                             {{ $student->sid }}
@@ -207,7 +207,7 @@
                             {{ $student->lastname }}
                         </td>
 
-                        @if(session('location') != 'DCC BED')
+                        @if(!str_starts_with(session('location'), 'DCC BED'))
                             <td class="py-4 px-6 text-gray-700">
                                 {{ $student->department }}
                             </td>
@@ -221,7 +221,7 @@
                             </td>
                         @endif
 
-                        @if(session('location') == 'DCC BED')
+                        @if(str_starts_with(session('location'), 'DCC BED'))
                         <td class="py-4 px-6">
                             {{ $student->grade }}
                         </td>
@@ -232,26 +232,22 @@
 
                         <td class="py-4 px-6 text-center">
                             <div class="flex item-center justify-center gap-3">
-                                <button type="button" onclick="showEditModal({{ $student->toJson() }})" class="text-orange-600 hover:text-orange-800 transition" title="Edit">
+                                <button type="button" onclick="showEditModal(this)" data-student="{{ $student->toJson() }}" class="text-orange-600 hover:text-orange-800 transition" title="Edit">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                     </svg>
                                 </button>
-                                <form action="{{ route('admin.student-data.destroy', $student->id) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this student?')">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="text-red-600 hover:text-red-800 transition" title="Delete">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                        </svg>
-                                    </button>
-                                </form>
+                                <button type="button" onclick="deleteStudent('{{ route('admin.student-data.destroy', $student->id) }}')" class="text-red-600 hover:text-red-800 transition" title="Delete">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                </button>
                             </div>
                         </td>
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="{{ session('location') == 'DCC BED' ? 8 : 9 }}" class="py-4 px-6 text-center text-gray-400 italic">
+                        <td colspan="{{ str_starts_with(session('location'), 'DCC BED') ? 8 : 9 }}" class="py-4 px-6 text-center text-gray-400 italic">
                             No students found in the records.
                         </td>
                     </tr>
@@ -306,7 +302,7 @@
                                 <input type="text" name="lastname" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm border p-2">
                             </div>
                         </div>
-                        @if(session('location') == 'DCC BED')
+                        @if(str_starts_with(session('location'), 'DCC BED'))
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Grade</label>
                                 <select name="grade" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm border p-2">
@@ -414,7 +410,7 @@
                                 <input type="text" name="lastname" id="edit_lastname" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm border p-2">
                             </div>
                         </div>
-                        @if(session('location') == 'DCC BED')
+                        @if(str_starts_with(session('location'), 'DCC BED'))
                             <div>
                                 <label class="block text-sm font-medium text-gray-700" for="edit_grade">Grade</label>
                                 <select name="grade" id="edit_grade" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm border p-2">
@@ -570,13 +566,57 @@
         }
     });
 
+    // Global Hidden Delete Form
+    const deleteForm = document.createElement('form');
+    deleteForm.id = 'deleteForm';
+    deleteForm.method = 'POST';
+    deleteForm.className = 'hidden';
+    deleteForm.innerHTML = `@csrf @method('DELETE')`;
+    document.body.appendChild(deleteForm);
+
+    // Delete Confirmation Modal HTML
+    const deleteModalHTML = `
+    <div id="deleteModal" class="fixed inset-0 z-50 hidden overflow-y-auto" role="dialog" aria-modal="true">
+        <div class="flex items-center justify-center min-h-screen p-4 text-center sm:p-0">
+            <div class="fixed inset-0 bg-slate-900 bg-opacity-60 backdrop-blur-sm transition-opacity" onclick="hideDeleteModal()"></div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+            <div class="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-md sm:w-full">
+                <div class="p-6 sm:p-8">
+                    <div class="flex items-start gap-4">
+                        <div class="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 text-red-600">
+                            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                        </div>
+                        <div class="flex-grow">
+                            <h3 class="text-lg font-bold text-gray-900 mb-1">Delete Student</h3>
+                            <p class="text-sm text-gray-500">Are you sure you want to delete this student? This action cannot be undone and the record will be permanently removed.</p>
+                        </div>
+                    </div>
+                    <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-6 mt-6 border-t border-gray-100">
+                        <button type="button" onclick="hideDeleteModal()" class="w-full sm:w-auto px-5 py-2.5 rounded-lg text-sm font-semibold bg-gray-100 hover:bg-gray-200 text-gray-800 transition duration-200 focus:outline-none">
+                            Cancel
+                        </button>
+                        <button type="button" onclick="submitDelete()" class="w-full sm:w-auto px-5 py-2.5 rounded-lg text-sm font-semibold bg-red-600 hover:bg-red-700 text-white shadow-sm transition duration-200 focus:outline-none">
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>`;
+    document.body.insertAdjacentHTML('beforeend', deleteModalHTML);
+
+    let deleteUrl = '';
+
     function showAddModal() {
         document.getElementById('addStudentModal').classList.remove('hidden');
     }
     function closeAddModal() {
         document.getElementById('addStudentModal').classList.add('hidden');
     }
-    function showEditModal(student) {
+    function showEditModal(button) {
+        const student = JSON.parse(button.getAttribute('data-student'));
         const updateUrl = "{{ route('admin.student-data.update', ':id') }}";
         document.getElementById('editForm').action = updateUrl.replace(':id', student.id);
         document.getElementById('edit_sid').value = student.sid;
@@ -611,6 +651,27 @@
     }
     function closeEditModal() {
         document.getElementById('editStudentModal').classList.add('hidden');
+    }
+
+    function deleteStudent(url) {
+        deleteUrl = url;
+        document.getElementById('deleteModal').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function hideDeleteModal() {
+        document.getElementById('deleteModal').classList.add('hidden');
+        document.body.style.overflow = '';
+        deleteUrl = '';
+    }
+
+    // Submit Delete function
+    function submitDelete() {
+        if (deleteUrl) {
+            const form = document.getElementById('deleteForm');
+            form.action = deleteUrl;
+            form.submit();
+        }
     }
 </script>
 @endsection

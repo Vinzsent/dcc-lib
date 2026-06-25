@@ -125,6 +125,12 @@
                     <select name="role" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
                         <option value="User">User</option>
                         <option value="Admin">Admin</option>
+                        <option value="Master">Master</option>
+                        <option value="Admin TED">Admin TED</option>
+                        <option value="Admin BED">Admin BED</option>
+                        <option value="Admin BEDHS">Admin BEDHS</option>
+                        <option value="Admin BEDSHS">Admin BEDSHS</option>
+                        <option value="Admin BEDELEM">Admin BEDELEM</option>
                     </select>
                 </div>
                 <div class="mb-4">
@@ -169,6 +175,12 @@
                     <select name="role" id="edit_role" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
                         <option value="User">User</option>
                         <option value="Admin">Admin</option>
+                        <option value="Master">Master</option>
+                        <option value="Admin TED">Admin TED</option>
+                        <option value="Admin BED">Admin BED</option>
+                        <option value="Admin BEDHS">Admin BEDHS</option>
+                        <option value="Admin BEDSHS">Admin BEDSHS</option>
+                        <option value="Admin BEDELEM">Admin BEDELEM</option>
                     </select>
                 </div>
                 <div class="mb-4">

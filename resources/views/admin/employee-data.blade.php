@@ -61,9 +61,9 @@
                 <thead>
                     <tr class="bg-gray-100 text-gray-600 uppercase text-sm leading-normal">
                         <th class="py-3 px-6">
-                            <a href="{{ request()->fullUrlWithQuery(['sort' => 'eid', 'direction' => request('sort') == 'eid' && request('direction') == 'asc' ? 'desc' : 'asc']) }}" class="flex items-center gap-1 group">
+                            <a href="{{ request()->fullUrlWithQuery(['sort' => 'id', 'direction' => request('sort') == 'id' && request('direction') == 'asc' ? 'desc' : 'asc']) }}" class="flex items-center gap-1 group">
                                 Employee ID
-                                @include('partials.sort-icon', ['field' => 'eid'])
+                                @include('partials.sort-icon', ['field' => 'id'])
                             </a>
                         </th>
                         <th class="py-3 px-6">
@@ -107,7 +107,7 @@
                     <!-- Filter Row -->
                     <tr class="bg-gray-50 border-b border-gray-200">
                         <td class="py-2 px-6">
-                            <input type="text" name="eid" value="{{ request('eid') }}" placeholder="ID" class="text-xs border border-gray-300 rounded p-1 w-full focus:ring-1 focus:ring-green-500 outline-none">
+                            <input type="text" name="id" value="{{ request('id') }}" placeholder="ID" class="text-xs border border-gray-300 rounded p-1 w-full focus:ring-1 focus:ring-green-500 outline-none">
                         </td>
                         <td class="py-2 px-6">
                             <input type="text" name="rfid" value="{{ request('rfid') }}" placeholder="RFID" class="text-xs border border-gray-300 rounded p-1 w-full focus:ring-1 focus:ring-green-500 outline-none">
@@ -146,7 +146,7 @@
                     @forelse ($employees as $employee)
                     <tr class="border-b border-gray-200 hover:bg-gray-50 transition">
                         <td class="py-4 px-6 font-medium text-gray-800">
-                            {{ $employee->eid }}
+                            {{ $employee->id }}
                         </td>
                         <td class="py-4 px-6 text-gray-700">
                             {{ $employee->rfid ?? 'N/A' }}
@@ -170,20 +170,16 @@
                         </td>
                         <td class="py-4 px-6 text-center">
                             <div class="flex item-center justify-center gap-3">
-                                <button onclick="showEditModal({{ $employee->toJson() }})" class="text-orange-600 hover:text-orange-800 transition" title="Edit">
+                                <button type="button" onclick="showEditModal(this)" data-employee="{{ $employee->toJson() }}" class="text-orange-600 hover:text-orange-800 transition" title="Edit">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                     </svg>
                                 </button>
-                                <form action="{{ route('admin.employee-data.destroy', $employee->id) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this employee?')">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="text-red-600 hover:text-red-800 transition" title="Delete">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                        </svg>
-                                    </button>
-                                </form>
+                                <button type="button" onclick="deleteEmployee('{{ route('admin.employee-data.destroy', $employee->id) }}')" class="text-red-600 hover:text-red-800 transition" title="Delete">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                </button>
                             </div>
                         </td>
                     </tr>
@@ -211,55 +207,69 @@
 
 <!-- Add Employee Modal -->
 <div id="addModal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" onclick="hideAddModal()"></div>
+    <div class="flex items-center justify-center min-h-screen p-4 text-center sm:p-0">
+        <!-- Backdrop with glassmorphism / slight blur -->
+        <div class="fixed inset-0 bg-slate-900 bg-opacity-60 backdrop-blur-sm transition-opacity" aria-hidden="true" onclick="hideAddModal()"></div>
         <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-            <form action="{{ route('admin.employee-data.store') }}" method="POST">
+        
+        <div class="inline-block align-middle bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-xl sm:w-full">
+            <div class="absolute top-0 right-0 pt-4 pr-4">
+                <button type="button" onclick="hideAddModal()" class="bg-white rounded-md text-gray-400 hover:text-gray-500 focus:outline-none">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            
+            <form action="{{ route('admin.employee-data.store') }}" method="POST" class="p-6 sm:p-8">
                 @csrf
-                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                    <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Add New Employee</h3>
-                    <div class="grid grid-cols-1 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Employee ID *</label>
-                            <input type="text" name="eid" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">RFID</label>
-                            <input type="text" name="rfid" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">First Name *</label>
-                            <input type="text" name="firstname" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Middle Name</label>
-                            <input type="text" name="middlename" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Last Name *</label>
-                            <input type="text" name="lastname" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Department</label>
-                            <input type="text" name="department" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Position</label>
-                            <input type="text" name="position" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Employment Type</label>
-                            <input type="text" name="employment_type" placeholder="e.g., Full-time, Part-time, Contract" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm">
-                        </div>
+                <div class="mb-6">
+                    <h3 class="text-xl font-bold text-gray-900">Add New Employee</h3>
+                    <p class="text-sm text-gray-500 mt-1">Please fill in the employee details below.</p>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">RFID</label>
+                        <input type="text" name="rfid" placeholder="Scan or enter RFID number" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition duration-200">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">First Name *</label>
+                        <input type="text" name="firstname" required placeholder="John" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition duration-200">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Last Name *</label>
+                        <input type="text" name="lastname" required placeholder="Doe" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition duration-200">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Middle Name</label>
+                        <input type="text" name="middlename" placeholder="Smith" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition duration-200">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Department</label>
+                        <input type="text" name="department" placeholder="e.g., College Department" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition duration-200">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Position</label>
+                        <input type="text" name="position" placeholder="e.g., Instructor" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition duration-200">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Employment Type</label>
+                        <select name="employment_type" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition duration-200">
+                            <option value="">Select Employment Type</option>
+                            <option value="Full-time">Full-time</option>
+                            <option value="Part-time">Part-time</option>
+                            <option value="Others">Others</option>
+                        </select>
                     </div>
                 </div>
-                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                    <button type="submit" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-emerald-700 text-base font-medium text-white hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:ml-3 sm:w-auto sm:text-sm">
-                        Add Employee
-                    </button>
-                    <button type="button" onclick="hideAddModal()" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                
+                <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-4 border-t border-gray-150">
+                    <button type="button" onclick="hideAddModal()" class="w-full sm:w-auto px-5 py-2.5 rounded-lg text-sm font-semibold bg-gray-100 hover:bg-gray-200 text-gray-800 transition duration-200 focus:outline-none focus:ring-2 focus:ring-gray-300">
                         Cancel
+                    </button>
+                    <button type="submit" class="w-full sm:w-auto px-5 py-2.5 rounded-lg text-sm font-semibold bg-emerald-700 hover:bg-emerald-800 text-white shadow-sm transition duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2">
+                        Add Employee
                     </button>
                 </div>
             </form>
@@ -269,56 +279,70 @@
 
 <!-- Edit Employee Modal -->
 <div id="editModal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" onclick="hideEditModal()"></div>
+    <div class="flex items-center justify-center min-h-screen p-4 text-center sm:p-0">
+        <!-- Backdrop with glassmorphism / slight blur -->
+        <div class="fixed inset-0 bg-slate-900 bg-opacity-60 backdrop-blur-sm transition-opacity" aria-hidden="true" onclick="hideEditModal()"></div>
         <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-            <form id="editForm" method="POST">
+        
+        <div class="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-xl sm:w-full">
+            <div class="absolute top-0 right-0 pt-4 pr-4">
+                <button type="button" onclick="hideEditModal()" class="bg-white rounded-md text-gray-400 hover:text-gray-500 focus:outline-none">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            
+            <form id="editForm" method="POST" class="p-6 sm:p-8">
                 @csrf
                 @method('PUT')
-                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                    <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Edit Employee</h3>
-                    <div class="grid grid-cols-1 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Employee ID *</label>
-                            <input type="text" name="eid" id="edit_eid" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">RFID</label>
-                            <input type="text" name="rfid" id="edit_rfid" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">First Name *</label>
-                            <input type="text" name="firstname" id="edit_firstname" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Middle Name</label>
-                            <input type="text" name="middlename" id="edit_middlename" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Last Name *</label>
-                            <input type="text" name="lastname" id="edit_lastname" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Department</label>
-                            <input type="text" name="department" id="edit_department" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Position</label>
-                            <input type="text" name="position" id="edit_position" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Employment Type</label>
-                            <input type="text" name="employment_type" id="edit_employment_type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm">
-                        </div>
+                <div class="mb-6">
+                    <h3 class="text-xl font-bold text-gray-900">Edit Employee</h3>
+                    <p class="text-sm text-gray-500 mt-1">Update the employee information below.</p>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">RFID</label>
+                        <input type="text" name="rfid" id="edit_rfid" placeholder="Scan or enter RFID number" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition duration-200">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">First Name *</label>
+                        <input type="text" name="firstname" id="edit_firstname" required placeholder="John" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition duration-200">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Last Name *</label>
+                        <input type="text" name="lastname" id="edit_lastname" required placeholder="Doe" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition duration-200">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Middle Name</label>
+                        <input type="text" name="middlename" id="edit_middlename" placeholder="Smith" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition duration-200">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Department</label>
+                        <input type="text" name="department" id="edit_department" placeholder="e.g., College Department" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition duration-200">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Position</label>
+                        <input type="text" name="position" id="edit_position" placeholder="e.g., Instructor" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition duration-200">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Employment Type</label>
+                        <select name="employment_type" id="edit_employment_type" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition duration-200">
+                            <option value="">Select Employment Type</option>
+                            <option value="Full-time">Full-time</option>
+                            <option value="Part-time">Part-time</option>
+                            <option value="Others">Others</option>
+                        </select>
                     </div>
                 </div>
-                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                    <button type="submit" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-emerald-700 text-base font-medium text-white hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:ml-3 sm:w-auto sm:text-sm">
-                        Update Employee
-                    </button>
-                    <button type="button" onclick="hideEditModal()" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                
+                <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-4 border-t border-gray-150">
+                    <button type="button" onclick="hideEditModal()" class="w-full sm:w-auto px-5 py-2.5 rounded-lg text-sm font-semibold bg-gray-100 hover:bg-gray-200 text-gray-800 transition duration-200 focus:outline-none focus:ring-2 focus:ring-gray-300">
                         Cancel
+                    </button>
+                    <button type="submit" class="w-full sm:w-auto px-5 py-2.5 rounded-lg text-sm font-semibold bg-emerald-700 hover:bg-emerald-800 text-white shadow-sm transition duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2">
+                        Update Employee
                     </button>
                 </div>
             </form>
@@ -326,7 +350,49 @@
     </div>
 </div>
 
+<!-- Global Hidden Delete Form -->
+<form id="deleteForm" method="POST" class="hidden">
+    @csrf
+    @method('DELETE')
+</form>
+
+<!-- Delete Confirmation Modal -->
+<div id="deleteModal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen p-4 text-center sm:p-0">
+        <!-- Backdrop with glassmorphism / slight blur -->
+        <div class="fixed inset-0 bg-slate-900 bg-opacity-60 backdrop-blur-sm transition-opacity" aria-hidden="true" onclick="hideDeleteModal()"></div>
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+        
+        <div class="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-md sm:w-full">
+            <div class="p-6 sm:p-8">
+                <div class="flex items-start gap-4">
+                    <div class="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 text-red-600">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                    </div>
+                    <div class="flex-grow border-0">
+                        <h3 class="text-lg font-bold text-gray-900 mb-1">Delete Employee</h3>
+                        <p class="text-sm text-gray-500">Are you sure you want to delete this employee? This action cannot be undone and the record will be permanently removed.</p>
+                    </div>
+                </div>
+                
+                <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-6 mt-6 border-t border-gray-100">
+                    <button type="button" onclick="hideDeleteModal()" class="w-full sm:w-auto px-5 py-2.5 rounded-lg text-sm font-semibold bg-gray-100 hover:bg-gray-200 text-gray-800 transition duration-200 focus:outline-none focus:ring-2 focus:ring-gray-300">
+                        Cancel
+                    </button>
+                    <button type="button" onclick="submitDelete()" class="w-full sm:w-auto px-5 py-2.5 rounded-lg text-sm font-semibold bg-red-600 hover:bg-red-700 text-white shadow-sm transition duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
+                        Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
+    let deleteUrl = '';
+
     function showAddModal() {
         document.getElementById('addModal').classList.remove('hidden');
         document.body.style.overflow = 'hidden';
@@ -337,9 +403,10 @@
         document.body.style.overflow = '';
     }
 
-    function showEditModal(employee) {
-        document.getElementById('editForm').action = `/admin/employee-data/${employee.id}`;
-        document.getElementById('edit_eid').value = employee.eid || '';
+    function showEditModal(button) {
+        const employee = JSON.parse(button.getAttribute('data-employee'));
+        const updateUrl = "{{ route('admin.employee-data.update', ':id') }}";
+        document.getElementById('editForm').action = updateUrl.replace(':id', employee.id);
         document.getElementById('edit_rfid').value = employee.rfid || '';
         document.getElementById('edit_firstname').value = employee.firstname || '';
         document.getElementById('edit_middlename').value = employee.middlename || '';
@@ -355,6 +422,26 @@
     function hideEditModal() {
         document.getElementById('editModal').classList.add('hidden');
         document.body.style.overflow = '';
+    }
+
+    function deleteEmployee(url) {
+        deleteUrl = url;
+        document.getElementById('deleteModal').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function hideDeleteModal() {
+        document.getElementById('deleteModal').classList.add('hidden');
+        document.body.style.overflow = '';
+        deleteUrl = '';
+    }
+
+    function submitDelete() {
+        if (deleteUrl) {
+            const form = document.getElementById('deleteForm');
+            form.action = deleteUrl;
+            form.submit();
+        }
     }
 
     // Auto-hide success alert after 5 seconds

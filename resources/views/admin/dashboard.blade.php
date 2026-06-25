@@ -70,6 +70,29 @@
     </div>
 </div>
 
+<!-- Activity Analytics Graph -->
+<div class="card mb-8">
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h3 class="text-lg font-bold text-gray-700">Activity Analytics</h3>
+            <p class="text-xs text-gray-400">Library traffic and borrowings over the last 7 days</p>
+        </div>
+        <div class="flex gap-4">
+            <div class="flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
+                <span class="text-xs text-gray-500 font-medium">Student Logs</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-blue-500"></span>
+                <span class="text-xs text-gray-500 font-medium">Book Borrowings</span>
+            </div>
+        </div>
+    </div>
+    <div class="relative h-[300px]">
+        <canvas id="activityChart"></canvas>
+    </div>
+</div>
+
 <div class="card">
     <div class="flex justify-between items-center mb-6">
         <h3 class="text-lg font-bold text-gray-700">Recent Library Entry</h3>
@@ -119,4 +142,128 @@
         </table>
     </div>
 </div>
+
+<!-- Chart.js and Graph Initialization -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('activityChart').getContext('2d');
+        
+        // Gradient for Student Logs (Emerald)
+        const logGradient = ctx.createLinearGradient(0, 0, 0, 300);
+        logGradient.addColorStop(0, 'rgba(16, 185, 129, 0.2)');
+        logGradient.addColorStop(1, 'rgba(16, 185, 129, 0)');
+
+        // Gradient for Borrowings (Blue)
+        const borrowGradient = ctx.createLinearGradient(0, 0, 0, 300);
+        borrowGradient.addColorStop(0, 'rgba(59, 130, 246, 0.2)');
+        borrowGradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: @json($chartLabels),
+                datasets: [
+                    {
+                        label: 'Student Logs',
+                        data: @json($logCounts),
+                        borderColor: '#10b981',
+                        backgroundColor: logGradient,
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#10b981',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    },
+                    {
+                        label: 'Book Borrowings',
+                        data: @json($borrowCounts),
+                        borderColor: '#3b82f6',
+                        backgroundColor: borrowGradient,
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#3b82f6',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        backgroundColor: '#1f2937',
+                        titleColor: '#fff',
+                        bodyColor: '#cbd5e1',
+                        borderColor: '#374151',
+                        borderWidth: 1,
+                        padding: 12,
+                        boxPadding: 6,
+                        usePointStyle: true,
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    label += context.parsed.y;
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            color: '#94a3b8',
+                            font: {
+                                size: 11
+                            }
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: '#f1f5f9',
+                            drawBorder: false
+                        },
+                        ticks: {
+                            color: '#94a3b8',
+                            font: {
+                                size: 11
+                            },
+                            stepSize: 1,
+                            callback: function(value) {
+                                if (Math.floor(value) === value) {
+                                    return value;
+                                }
+                            }
+                        }
+                    }
+                },
+                interaction: {
+                    intersect: false,
+                    mode: 'index',
+                }
+            }
+        });
+    });
+</script>
 @endsection

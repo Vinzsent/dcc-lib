@@ -385,9 +385,65 @@
                 </a>
             </li>
 
+            <!-- Library System -->
+            <div class="px-4 py-2 mt-2 mb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider link-text flex items-center gap-2">
+                <span>Library Module</span>
+            </div>
+            
+            <li class="nav-item">
+                <a href="{{ route('admin.library.books.index') }}" class="nav-link {{ request()->routeIs('admin.library.books.*') ? 'active' : '' }}">
+                    <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                    <span class="link-text">Books</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ route('admin.library.shelves.index') }}" class="nav-link {{ request()->routeIs('admin.library.shelves.*') ? 'active' : '' }}">
+                    <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                    </svg>
+                    <span class="link-text">Shelves</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ route('admin.library.borrow.index') }}" class="nav-link {{ request()->routeIs('admin.library.borrow.*') ? 'active' : '' }}">
+                    <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    <span class="link-text">Borrow Book</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ route('admin.library.return.index') }}" class="nav-link {{ request()->routeIs('admin.library.return.*') ? 'active' : '' }}">
+                    <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                    </svg>
+                    <span class="link-text">Return Book</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ route('admin.library.history') }}" class="nav-link {{ request()->routeIs('admin.library.history') ? 'active' : '' }}">
+                    <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span class="link-text">Transaction History</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ route('admin.library.reports') }}" class="nav-link {{ request()->routeIs('admin.library.reports') ? 'active' : '' }}">
+                    <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 002 2h2a2 2 0 002-2z" />
+                    </svg>
+                    <span class="link-text">Library Reports</span>
+                </a>
+            </li>
+
             <!-- Users -->
             <li class="nav-item">
-                <a href="{{ route('admin.users') }}" class="nav-link {{ request()->routeIs('admin.users') ? 'active' : '' }}">
+                <a href="{{ route('admin.users') }}" 
+                   onclick="checkUserAccess(event, '{{ route('admin.users') }}')"
+                   class="nav-link {{ request()->routeIs('admin.users') ? 'active' : '' }}">
                     <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                     </svg>
@@ -409,6 +465,44 @@
             </form>
         </div>
     </aside>
+
+    <!-- Password Protection Modal -->
+    <div id="userPasswordModal" class="fixed inset-0 z-[60] hidden overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" onclick="hidePasswordModal()"></div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="sm:flex sm:items-start">
+                        <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
+                            <svg class="h-6 w-6 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                        </div>
+                        <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900">Admin Access Required</h3>
+                            <div class="mt-2">
+                                <p class="text-sm text-gray-500 mb-4">Please enter the MIS Admin password to access this page.</p>
+                                <input type="password" id="admin_access_password" 
+                                    class="block w-full border-gray-300 rounded-md shadow-sm border p-2 focus:ring-blue-500 focus:border-blue-500"
+                                    placeholder="Enter password..."
+                                    onkeydown="if(event.key==='Enter') verifyUserPassword()">
+                                <p id="password_error" class="hidden text-xs text-red-600 mt-2">Invalid password. Please try again.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button type="button" onclick="verifyUserPassword()" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm">
+                        Verify Access
+                    </button>
+                    <button type="button" onclick="hidePasswordModal()" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Main Content -->
     <div class="main-content">
@@ -482,6 +576,40 @@
 
         function confirmLogout() {
             document.getElementById('logout-form').submit();
+        }
+
+        let pendingRedirectUrl = '';
+
+        function checkUserAccess(event, url) {
+            // Check if already verified in this session to avoid annoyance
+            if (sessionStorage.getItem('mis_admin_verified') === 'true') {
+                return true; // Allow direct navigation
+            }
+            
+            event.preventDefault();
+            pendingRedirectUrl = url;
+            document.getElementById('userPasswordModal').classList.remove('hidden');
+            document.getElementById('admin_access_password').focus();
+            document.body.style.overflow = 'hidden';
+        }
+
+        function hidePasswordModal() {
+            document.getElementById('userPasswordModal').classList.add('hidden');
+            document.getElementById('admin_access_password').value = '';
+            document.getElementById('password_error').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+
+        function verifyUserPassword() {
+            const password = document.getElementById('admin_access_password').value;
+            if (password === 'misadmin') {
+                sessionStorage.setItem('mis_admin_verified', 'true');
+                window.location.href = pendingRedirectUrl;
+            } else {
+                document.getElementById('password_error').classList.remove('hidden');
+                document.getElementById('admin_access_password').value = '';
+                document.getElementById('admin_access_password').focus();
+            }
         }
 
         document.addEventListener('DOMContentLoaded', () => {
