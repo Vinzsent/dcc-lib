@@ -536,12 +536,22 @@ class AdminController extends Controller
 
     public function users()
     {
+        if (auth()->user()->role !== 'Master') {
+            return redirect()->route('admin.dashboard')
+                ->with('error', 'Only the Master account can manage users.');
+        }
+
         $users = User::paginate(10);
         return view('admin.users', compact('users'));
     }
 
     public function storeUser(Request $request)
     {
+        if (auth()->user()->role !== 'Master') {
+            return redirect()->route('admin.dashboard')
+                ->with('error', 'Only the Master account can manage users.');
+        }
+
         $request->validate([
             'name' => 'required|string|max:255',
             'username' => 'required|string|max:255|unique:users',
@@ -563,6 +573,11 @@ class AdminController extends Controller
 
     public function updateUser(Request $request, User $user)
     {
+        if (auth()->user()->role !== 'Master') {
+            return redirect()->route('admin.dashboard')
+                ->with('error', 'Only the Master account can manage users.');
+        }
+
         $request->validate([
             'name' => 'required|string|max:255',
             'username' => 'required|string|max:255|unique:users,username,' . $user->id,
@@ -587,6 +602,11 @@ class AdminController extends Controller
 
     public function destroyUser(User $user)
     {
+        if (auth()->user()->role !== 'Master') {
+            return redirect()->route('admin.dashboard')
+                ->with('error', 'Only the Master account can manage users.');
+        }
+
         // Prevent self-deletion if logged in admin is the target
         if (\Illuminate\Support\Facades\Auth::id() === $user->id) {
             return redirect()->back()->with('error', 'You cannot delete your own account.');
