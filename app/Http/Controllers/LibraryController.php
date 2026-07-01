@@ -147,27 +147,11 @@ class LibraryController extends Controller
         return view('admin.library.borrow');
     }
 
-    public function borrowStore(Request $request)
+    public function checkBook(Request $request)
     {
         $request->validate([
-            'borrower_id'  => 'required|string',
             'accession_no' => 'required|string',
-            'borrow_type'  => 'required|in:Student,Faculty,Staff',
-            'book_section' => 'required|in:Reserved,Filipiniana,Circulation,Fiction',
-            'borrow_period' => 'required|in:30 minutes,1 day,3 days,5 days,1st Semester,2nd Semester',
         ]);
-
-        // Resolve borrower
-        $student = Student::where('sid', $request->borrower_id)
-            ->orWhere('rfid', $request->borrower_id)->first();
-
-        $employee = Employee::where('id', $request->borrower_id)
-            ->orWhere('rfid', $request->borrower_id)->first();
-
-        $borrower = $student ?: $employee;
-        if (!$borrower) {
-            return response()->json(['success' => false, 'message' => 'Borrower not found in Students or Employees.'], 404);
-        }
 
         $campuses = $this->getBookCampusFilter();
         $bookQuery = Book::where(function ($q) use ($request) {
@@ -189,53 +173,155 @@ class LibraryController extends Controller
             return response()->json(['success' => false, 'message' => 'Book is currently borrowed.'], 400);
         }
 
-        // Compute due_date from borrow_period
-        $due_date = match ($request->borrow_period) {
-            '30 minutes'   => Carbon::now()->addMinutes(30),
-            '1 day'        => Carbon::today()->addDay(),
-            '3 days'       => Carbon::today()->addDays(3),
-            '5 days'       => Carbon::today()->addDays(5),
-            '1st Semester' => Carbon::today()->addWeeks(18),
-            '2nd Semester' => Carbon::today()->addWeeks(18),
-            default        => Carbon::today()->addWeek(),
-        };
-
-        $book->update(['status' => 'Borrowed']);
-
-        $transaction = new Transaction();
-        $transaction->borrower_id   = $request->borrower_id;
-        $transaction->borrower_type = get_class($borrower);
-        $transaction->borrow_type   = $request->borrow_type;
-        $transaction->book_section  = $request->book_section;
-        $transaction->accession_no  = $book->accession_no;
-        $transaction->date_borrowed = Carbon::today();
-        $transaction->due_date      = $due_date;
-        $transaction->status        = 'Borrowed';
-        $transaction->save();
-
-        $borrowerName = trim(implode(' ', array_filter([
-            $borrower->firstname,
-            $borrower->middlename ? $borrower->middlename[0] . '.' : null,
-            $borrower->lastname,
-        ])));
-
         return response()->json([
-            'success'       => true,
-            'message'       => 'Book borrowed successfully.',
-            'transaction'   => $transaction,
-            'borrower_name' => $borrowerName,
-            'borrower_year'   => $borrower->year   ?? null,
-            'borrower_course' => $borrower->course ?? null,
-            'book'          => [
-                'title'       => $book->title,
-                'author'      => $book->author,
+            'success' => true,
+            'book' => [
+                'id' => $book->id,
+                'title' => $book->title,
+                'author' => $book->author,
                 'call_number' => $book->call_number,
-                'location'    => $book->location,
-                'shelf_number' => $book->shelf_number,
                 'accession_no' => $book->accession_no,
-                'barcode'     => $book->barcode
-            ],
+                'barcode' => $book->barcode
+            ]
         ]);
+    }
+
+    public function borrowStore(Request $request)
+    {
+        // Support both batch (array of books) and single-book format
+        if ($request->has('books') && is_array($request->books)) {
+            $request->validate([
+                'borrower_id'  => 'required|string',
+                'borrow_type'  => 'required|in:Student,Faculty,Staff',
+                'books'        => 'required|array|min:1',
+                'books.*.accession_no' => 'required|string',
+                'books.*.book_section' => 'required|in:Reserved,Filipiniana,Circulation,Fiction,Thesis & Dissertation',
+                'books.*.borrow_period' => 'required|string',
+            ]);
+            $booksList = $request->books;
+        } else {
+            $request->validate([
+                'borrower_id'  => 'required|string',
+                'accession_no' => 'required|string',
+                'borrow_type'  => 'required|in:Student,Faculty,Staff',
+                'book_section' => 'required|in:Reserved,Filipiniana,Circulation,Fiction,Thesis & Dissertation',
+                'borrow_period' => 'required|string',
+            ]);
+            $booksList = [[
+                'accession_no' => $request->accession_no,
+                'book_section' => $request->book_section,
+                'borrow_period' => $request->borrow_period
+            ]];
+        }
+
+        // Resolve borrower
+        $student = Student::where('sid', $request->borrower_id)
+            ->orWhere('rfid', $request->borrower_id)->first();
+
+        $employee = Employee::where('id', $request->borrower_id)
+            ->orWhere('rfid', $request->borrower_id)->first();
+
+        $borrower = $student ?: $employee;
+        if (!$borrower) {
+            return response()->json(['success' => false, 'message' => 'Borrower not found in Students or Employees.'], 404);
+        }
+
+        $campuses = $this->getBookCampusFilter();
+
+        try {
+            $transactionsData = \Illuminate\Support\Facades\DB::transaction(function () use ($booksList, $request, $borrower, $campuses) {
+                $createdTransactions = [];
+                $processedBooks = [];
+
+                foreach ($booksList as $item) {
+                    $bookQuery = Book::where(function ($q) use ($item) {
+                        $q->where('barcode', $item['accession_no'])
+                          ->orWhere('accession_no', $item['accession_no']);
+                    });
+
+                    if ($campuses !== null) {
+                        $bookQuery->whereIn('campus', $campuses);
+                    }
+
+                    $book = $bookQuery->first();
+
+                    if (!$book) {
+                        throw new \Exception("Book with barcode/accession '" . $item['accession_no'] . "' not found.");
+                    }
+
+                    if ($book->status === 'Borrowed') {
+                        throw new \Exception("Book '" . $book->title . "' is currently borrowed.");
+                    }
+
+                    // Compute due_date from borrow_period
+                    $period = $item['borrow_period'];
+                    $due_date = match ($period) {
+                        '30 minutes'   => Carbon::now()->addMinutes(30),
+                        '1 day'        => Carbon::today()->addDay(),
+                        '3 days'       => Carbon::today()->addDays(3),
+                        '5 days'       => Carbon::today()->addDays(5),
+                        '1st Semester' => Carbon::today()->addWeeks(18),
+                        '2nd Semester' => Carbon::today()->addWeeks(18),
+                        'Inside Reading' => Carbon::now()->addHours(4),
+                        'Summer Class' => Carbon::today()->addWeeks(6),
+                        default        => Carbon::today()->addWeek(),
+                    };
+
+                    $book->update(['status' => 'Borrowed']);
+
+                    $transaction = new Transaction();
+                    $transaction->borrower_id   = $request->borrower_id;
+                    $transaction->borrower_type = get_class($borrower);
+                    $transaction->borrow_type   = $request->borrow_type;
+                    $transaction->book_section  = $item['book_section'];
+                    $transaction->book_id       = $book->id;
+                    $transaction->accession_no  = $book->accession_no;
+                    $transaction->date_borrowed = Carbon::now();
+                    $transaction->due_date      = $due_date;
+                    $transaction->status        = 'Borrowed';
+                    $transaction->save();
+
+                    $createdTransactions[] = $transaction;
+                    $processedBooks[] = [
+                        'title'       => $book->title,
+                        'author'      => $book->author,
+                        'call_number' => $book->call_number,
+                        'location'    => $book->location,
+                        'shelf_number' => $book->shelf_number,
+                        'accession_no' => $book->accession_no,
+                        'barcode'     => $book->barcode,
+                        'book_section' => $item['book_section'],
+                        'due_date'    => $due_date
+                    ];
+                }
+
+                return [
+                    'transactions' => $createdTransactions,
+                    'books' => $processedBooks
+                ];
+            });
+
+            $borrowerName = trim(implode(' ', array_filter([
+                $borrower->firstname,
+                $borrower->middlename ? $borrower->middlename[0] . '.' : null,
+                $borrower->lastname,
+            ])));
+
+            return response()->json([
+                'success'       => true,
+                'message'       => 'Books borrowed successfully.',
+                'transactions'  => $transactionsData['transactions'],
+                'borrower_name' => $borrowerName,
+                'borrower_year'   => $borrower->year   ?? null,
+                'borrower_course' => $borrower->course ?? null,
+                'borrow_type'   => $request->borrow_type,
+                'borrower_id'   => $request->borrower_id,
+                'books'         => $transactionsData['books'],
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 400);
+        }
     }
 
     // ----- RETURNING -----
@@ -274,19 +360,25 @@ class LibraryController extends Controller
             return response()->json(['success' => false, 'message' => 'No active borrow transaction found for this book.'], 404);
         }
 
-        $today = Carbon::today();
+        $now = Carbon::now();
         $dueDate = Carbon::parse($transaction->due_date);
 
         $daysOverdue = 0;
+        $hoursOverdue = 0;
         $fine = 0;
 
-        if ($today->gt($dueDate)) {
-            $daysOverdue = $today->diffInDays($dueDate);
-            $fine = $daysOverdue * 5; // User formula: days * 5
+        if ($now->gt($dueDate)) {
+            if ($transaction->book_section === 'Reserved') {
+                $hoursOverdue = $now->diffInHours($dueDate);
+                $fine = max(1, $hoursOverdue) * 5;
+            } else {
+                $daysOverdue = $now->diffInDays($dueDate);
+                $fine = $daysOverdue * 5;
+            }
         }
 
         $transaction->update([
-            'date_returned' => $today,
+            'date_returned' => $now,
             'fine' => $fine,
             'status' => 'Returned'
         ]);
@@ -297,7 +389,9 @@ class LibraryController extends Controller
             'success' => true,
             'message' => 'Book returned successfully.',
             'fine' => $fine,
-            'days_overdue' => $daysOverdue
+            'days_overdue' => $daysOverdue,
+            'hours_overdue' => $hoursOverdue,
+            'book_section' => $transaction->book_section
         ]);
     }
 
