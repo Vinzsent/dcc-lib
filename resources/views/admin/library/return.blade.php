@@ -93,7 +93,11 @@
                 
                 if (result.fine > 0) {
                     document.getElementById('fine-summary').style.display = 'block';
-                    document.getElementById('overdue-text').innerText = `Book is ${result.days_overdue} days overdue.`;
+                    if (result.book_section === 'Reserved') {
+                        document.getElementById('overdue-text').innerText = `Book is ${result.hours_overdue} hour(s) overdue.`;
+                    } else {
+                        document.getElementById('overdue-text').innerText = `Book is ${result.days_overdue} day(s) overdue.`;
+                    }
                     document.getElementById('fine-amount').innerText = `Fine: ₱${result.fine}`;
                 }
 

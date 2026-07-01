@@ -45,14 +45,30 @@
                     <td class="py-4 px-6">
                         @if($txn->status === 'Returned')
                             <span class="bg-gray-100 text-gray-700 py-1 px-3 rounded-full text-xs">{{ $txn->status }}</span>
-                        @elseif($txn->status === 'Overdue' || \Carbon\Carbon::today()->gt(\Carbon\Carbon::parse($txn->due_date)) && $txn->status === 'Borrowed')
+                        @elseif($txn->status === 'Overdue' || \Carbon\Carbon::now()->gt(\Carbon\Carbon::parse($txn->due_date)) && $txn->status === 'Borrowed')
                             <span class="bg-red-100 text-red-700 py-1 px-3 rounded-full text-xs">Overdue</span>
                         @else
                             <span class="bg-green-100 text-green-700 py-1 px-3 rounded-full text-xs">{{ $txn->status }}</span>
                         @endif
                     </td>
-                    <td class="py-4 px-6">{{ \Carbon\Carbon::parse($txn->due_date)->format('M d, Y') }}</td>
-                    <td class="py-4 px-6">{{ $txn->date_returned ? \Carbon\Carbon::parse($txn->date_returned)->format('M d, Y') : '-' }}</td>
+                    <td class="py-4 px-6">
+                        @if($txn->book_section === 'Reserved')
+                            {{ \Carbon\Carbon::parse($txn->due_date)->format('M d, Y g:i A') }}
+                        @else
+                            {{ \Carbon\Carbon::parse($txn->due_date)->format('M d, Y') }}
+                        @endif
+                    </td>
+                    <td class="py-4 px-6">
+                        @if($txn->date_returned)
+                            @if($txn->book_section === 'Reserved')
+                                {{ \Carbon\Carbon::parse($txn->date_returned)->format('M d, Y g:i A') }}
+                            @else
+                                {{ \Carbon\Carbon::parse($txn->date_returned)->format('M d, Y') }}
+                            @endif
+                        @else
+                            -
+                        @endif
+                    </td>
                     <td class="py-4 px-6 text-red-600 font-semibold text-center">
                         {{ $txn->fine > 0 ? '₱' . number_format($txn->fine, 2) : '-' }}
                     </td>

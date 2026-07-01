@@ -65,6 +65,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
 
         Route::get('/borrow', [LibraryController::class, 'borrowIndex'])->name('borrow.index');
         Route::post('/borrow', [LibraryController::class, 'borrowStore'])->name('borrow.store');
+        Route::post('/borrow/check-book', [LibraryController::class, 'checkBook'])->name('borrow.check-book');
 
         Route::get('/return', [LibraryController::class, 'returnIndex'])->name('return.index');
         Route::post('/return', [LibraryController::class, 'returnUpdate'])->name('return.update');
