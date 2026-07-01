@@ -4,6 +4,31 @@
 @section('header', 'Overview')
 
 @section('content')
+
+@if(session('success'))
+    <div class="mb-6 p-4 bg-green-100 border-l-4 border-green-500 text-green-700 flex justify-between items-center transition-all duration-500" id="success-alert">
+        <span>{{ session('success') }}</span>
+        <button onclick="document.getElementById('success-alert').style.display='none'" class="text-green-700 font-bold">&times;</button>
+    </div>
+@endif
+
+@if(session('error'))
+    <div class="mb-6 p-4 bg-red-100 border-l-4 border-red-500 text-red-700 flex justify-between items-center transition-all duration-500" id="error-alert">
+        <span>{{ session('error') }}</span>
+        <button onclick="document.getElementById('error-alert').style.display='none'" class="text-red-700 font-bold">&times;</button>
+    </div>
+@endif
+
+<script>
+    // Auto-hide alerts after 5 seconds
+    setTimeout(function () {
+        ['success-alert', 'error-alert'].forEach(function (id) {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        });
+    }, 5000);
+</script>
+
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
     <!-- Total Students -->
     <div class="card p-6 bg-white border-l-4 border-emerald-700 shadow-sm hover:shadow-md transition">
