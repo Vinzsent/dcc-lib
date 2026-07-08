@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Book;
+use App\Models\BookElem;
 use App\Models\Transaction;
 use App\Models\Student;
 use App\Models\Employee;
@@ -15,6 +16,13 @@ class LibraryController extends Controller
     // ----- BOOKS CRUD -----
     public function booksIndex(Request $request)
     {
+        $location = session('location');
+        $isElem = ($location === 'DCC BED Elementary');
+
+        if ($isElem) {
+            return $this->booksIndexElem($request);
+        }
+
         $campuses = $this->getBookCampusFilter();
         $booksQuery = Book::query();
         $shelvesQuery = Shelf::orderBy('shelf_number');
@@ -83,8 +91,74 @@ class LibraryController extends Controller
         return view('admin.library.books', compact('books', 'shelves'));
     }
 
+    /**
+     * Books index for DCC BED Elementary (uses books_elem table).
+     */
+    private function booksIndexElem(Request $request)
+    {
+        $query = BookElem::query();
+
+        // Global Search
+        if ($search = $request->input('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('accession_number', 'like', "%{$search}%")
+                  ->orWhere('title', 'like', "%{$search}%")
+                  ->orWhere('author', 'like', "%{$search}%")
+                  ->orWhere('call_number', 'like', "%{$search}%");
+            });
+        }
+
+        // Column-specific Filters
+        if ($request->filled('accession_no')) {
+            $query->where('accession_number', 'like', "%{$request->accession_no}%");
+        }
+        if ($request->filled('title')) {
+            $query->where('title', 'like', "%{$request->title}%");
+        }
+        if ($request->filled('author')) {
+            $query->where('author', 'like', "%{$request->author}%");
+        }
+        if ($request->filled('call_number')) {
+            $query->where('call_number', 'like', "%{$request->call_number}%");
+        }
+
+        // Sorting
+        $sort = $request->input('sort', 'title');
+        $direction = $request->input('direction', 'asc');
+        $allowedSorts = ['accession_number', 'title', 'author', 'call_number'];
+        if (in_array($sort, $allowedSorts)) {
+            $query->orderBy($sort, $direction);
+        } else {
+            $query->orderBy('title', 'asc');
+        }
+
+        $elemBooks = $query->paginate(10);
+        $shelves = collect();
+        return view('admin.library.books_elem', compact('elemBooks', 'shelves'));
+    }
+
     public function booksStore(Request $request)
     {
+        $location = session('location');
+
+        if ($location === 'DCC BED Elementary') {
+            $request->validate([
+                'accession_no' => 'required|string|unique:books_elem,accession_number',
+                'title'        => 'required|string',
+                'author'       => 'required|string',
+                'call_number'  => 'required|string',
+            ]);
+
+            BookElem::create([
+                'accession_number' => $request->accession_no,
+                'title'            => $request->title,
+                'author'           => $request->author,
+                'call_number'      => $request->call_number,
+            ]);
+
+            return response()->json(['success' => true, 'message' => 'Book added successfully']);
+        }
+
         $rules = [
             'accession_no' => 'required|string|unique:books_main,accession_no',
             'barcode' => 'nullable|string|unique:books_main,barcode',
@@ -114,6 +188,27 @@ class LibraryController extends Controller
 
     public function booksUpdate(Request $request, $accession_no)
     {
+        $location = session('location');
+
+        if ($location === 'DCC BED Elementary') {
+            $book = BookElem::findOrFail($accession_no);
+            $request->validate([
+                'accession_no' => 'required|string|unique:books_elem,accession_number,' . $accession_no . ',accession_number',
+                'title'        => 'required|string',
+                'author'       => 'required|string',
+                'call_number'  => 'required|string',
+            ]);
+
+            $book->update([
+                'accession_number' => $request->accession_no,
+                'title'            => $request->title,
+                'author'           => $request->author,
+                'call_number'      => $request->call_number,
+            ]);
+
+            return response()->json(['success' => true, 'message' => 'Book updated successfully']);
+        }
+
         $book = Book::findOrFail($accession_no);
         $rules = [
             'accession_no' => 'required|string|unique:books_main,accession_no,' . $accession_no . ',accession_no',
@@ -137,7 +232,14 @@ class LibraryController extends Controller
 
     public function booksDestroy($accession_no)
     {
-        Book::findOrFail($accession_no)->delete();
+        $location = session('location');
+
+        if ($location === 'DCC BED Elementary') {
+            BookElem::findOrFail($accession_no)->delete();
+        } else {
+            Book::findOrFail($accession_no)->delete();
+        }
+
         return response()->json(['success' => true, 'message' => 'Book deleted successfully']);
     }
 
@@ -253,15 +355,25 @@ class LibraryController extends Controller
                         throw new \Exception("Book '" . $book->title . "' is currently borrowed.");
                     }
 
-                    // Compute due_date from borrow_period
                     $period = $item['borrow_period'];
+
+                    $firstSemDueDate = Carbon::today()->startOfMonth()->month(12)->day(31);
+                    if (Carbon::today()->gt($firstSemDueDate)) {
+                        $firstSemDueDate->addYear();
+                    }
+
+                    $secondSemDueDate = Carbon::today()->startOfMonth()->month(6)->day(30);
+                    if (Carbon::today()->gt($secondSemDueDate)) {
+                        $secondSemDueDate->addYear();
+                    }
+
                     $due_date = match ($period) {
                         '30 minutes'   => Carbon::now()->addMinutes(30),
                         '1 day'        => Carbon::today()->addDay(),
                         '3 days'       => Carbon::today()->addDays(3),
                         '5 days'       => Carbon::today()->addDays(5),
-                        '1st Semester' => Carbon::today()->addWeeks(18),
-                        '2nd Semester' => Carbon::today()->addWeeks(18),
+                        '1st Semester' => $firstSemDueDate,
+                        '2nd Semester' => $secondSemDueDate,
                         'Inside Reading' => Carbon::now()->addHours(4),
                         'Summer Class' => Carbon::today()->addWeeks(6),
                         default        => Carbon::today()->addWeek(),
@@ -291,7 +403,8 @@ class LibraryController extends Controller
                         'accession_no' => $book->accession_no,
                         'barcode'     => $book->barcode,
                         'book_section' => $item['book_section'],
-                        'due_date'    => $due_date
+                        'due_date'    => $due_date,
+                        'date_borrowed' => Carbon::now()
                     ];
                 }
 
