@@ -162,7 +162,11 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    showStudent(data);
+                    if (data.type === 'employee') {
+                        showEmployee(data);
+                    } else {
+                        showStudent(data);
+                    }
                 } else {
                     showError(data.message || 'Scan failed.');
                 }
@@ -173,8 +177,53 @@
             }
         }
 
-        function showStudent(data) {
+        function showEmployee(data) {
             // Instant feedback flash
+            const panel = document.getElementById('feedback_panel');
+            panel.classList.remove('scan-pulse');
+            void panel.offsetWidth; // Force reflow
+            panel.classList.add('scan-pulse');
+
+            // Reset views
+            welcomeMsg.classList.add('hidden');
+            errorMsg.classList.add('hidden');
+            studentDisplay.classList.remove('hidden');
+
+            // Animation reset
+            studentDisplay.classList.remove('translate-y-4', 'opacity-0');
+            studentDisplay.style.opacity = '1';
+
+            const e = data.employee;
+            document.getElementById('student_name').innerText = `${e.firstname} ${e.lastname}`;
+            document.getElementById('student_detail').innerText = `${e.department || ''} | ${e.position || ''} - ${e.employment_type || ''}`.replace(/^\|\s*|\s*\|$/g, '').trim();
+            document.getElementById('student_sid').innerText = 'EMP ' + e.eid;
+            document.getElementById('transaction_time').innerText = data.time;
+
+            // Status Badge
+            const badge = document.getElementById('status_badge');
+            badge.innerText = (data.status === 'in' ? 'Time In' : 'Time Out') + ' · Employee';
+            badge.className = `inline-block px-4 py-1 rounded-full text-xs font-bold uppercase tracking-widest mb-4 status-badge ${data.status === 'in' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`;
+
+            // Update Stats (student-only counts)
+            if (data.counts) {
+                document.getElementById('stat_inside').innerText = data.counts.inside;
+                document.getElementById('stat_in').innerText = data.counts.in;
+                document.getElementById('stat_out').innerText = data.counts.out;
+            }
+
+            // Employees have no profile photo — always use initials
+            const profileImg = document.getElementById('student_profile');
+            const initialsDiv = document.getElementById('student_initials');
+            profileImg.classList.add('hidden');
+            initialsDiv.classList.remove('hidden');
+            initialsDiv.innerText = (e.firstname ? e.firstname[0] : '') + (e.lastname ? e.lastname[0] : '');
+            initialsDiv.style.backgroundColor = data.status === 'in' ? '#059669' : '#dc2626';
+
+            clearTimeout(window.scanTimeout);
+            window.scanTimeout = setTimeout(resetUI, 2000);
+        }
+
+        function showStudent(data) {            // Instant feedback flash
             const panel = document.getElementById('feedback_panel');
             panel.classList.remove('scan-pulse');
             void panel.offsetWidth; // Force reflow
