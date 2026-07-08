@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Student;
 use App\Models\Inout;
+use App\Models\Employee;
+use App\Models\EmployeeLog;
 use Carbon\Carbon;
 
 class ScannerController extends Controller
@@ -127,7 +129,10 @@ class ScannerController extends Controller
         $student = $query->first();
 
         if (!$student) {
-            return response()->json(['success' => false, 'message' => 'Student not found in master records.'], 404);
+            // No student matched (or filtered out by campus/grade). Check for a
+            // matching employee globally — employees are not bound by campus so
+            // that an employee registered at one campus can tap in at any other.
+            return $this->scanEmployee($sid);
         }
 
         // Use canonical SID from student record for inout logs
@@ -180,6 +185,81 @@ class ScannerController extends Controller
                 'counts' => $this->getCounts()
             ]);
         }
+    }
+
+    /**
+     * Handle an RFID/EID tap for an employee. Employees are looked up globally
+     * (no campus or grade filter) so an employee can be identified on any
+     * campus's tapping screen. Logs go to the employee_logs table.
+     */
+    private function scanEmployee(string $sid)
+    {
+        $employee = Employee::where('eid', $sid)
+            ->orWhere('rfid', $sid)
+            ->first();
+
+        if (!$employee) {
+            return response()->json(['success' => false, 'message' => 'Student/Employee not found in master records.'], 404);
+        }
+
+        $canonicalEid = $employee->eid;
+
+        // Record the campus where the employee physically tapped (the scanner's
+        // location), not their home/registered campus. This way an employee
+        // registered at BED who taps at DCC Main is logged as "DCC Main".
+        // Falls back to the employee's home campus when the scanner session
+        // has no location (e.g. Master/global view, or session not set).
+        $location = session('location');
+        $tapCampus = ($location && $location !== 'Master')
+            ? $this->getCampus($location)
+            : ($employee->campus ?: null);
+
+        // Check for an active session (Time In but no Time Out)
+        $activeLog = EmployeeLog::where('eid', $canonicalEid)
+            ->whereNull('time_out')
+            ->orderBy('time_in', 'desc')
+            ->first();
+
+        if ($activeLog) {
+            // Perform Time Out
+            $now = Carbon::now();
+            $activeLog->update(['time_out' => $now]);
+
+            return response()->json([
+                'success' => true,
+                'type' => 'employee',
+                'status' => 'out',
+                'message' => 'Time Out recorded successfully.',
+                'employee' => $employee,
+                'time' => $now->format('h:i A'),
+                'counts' => $this->getCounts()
+            ]);
+        }
+
+        // Perform Time In
+        $now = Carbon::now();
+        EmployeeLog::create([
+            'eid' => $canonicalEid,
+            'campus' => $tapCampus,
+            'rfid' => $employee->rfid,
+            'firstname' => $employee->firstname,
+            'middlename' => $employee->middlename,
+            'lastname' => $employee->lastname,
+            'department' => $employee->department,
+            'position' => $employee->position,
+            'employment_type' => $employee->employment_type,
+            'time_in' => $now,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'type' => 'employee',
+            'status' => 'in',
+            'message' => 'Time In recorded successfully.',
+            'employee' => $employee,
+            'time' => $now->format('h:i A'),
+            'counts' => $this->getCounts()
+        ]);
     }
 
     private function getCounts()
