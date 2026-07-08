@@ -222,7 +222,7 @@
                     </svg>
                     <select name="location" id="location" required>
                         <option value="">Select Location</option>
-                        <option value="DCC Main">DCC Main</option>
+                        <option value="DCC TED">DCC TED</option>
                         <option value="DCC BED">DCC BED (All)</option>
                         <option value="DCC BED SeniorHighSchool">DCC BED - Senior High School</option>
                         <option value="DCC BED Highschool">DCC BED - High School</option>

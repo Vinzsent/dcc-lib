@@ -39,7 +39,7 @@ class StudentsImport implements ToModel, WithHeadingRow, WithBatchInserts, WithC
             'grade'      => $grade,
             'section'    => $row['section'] ?? null,
             'year'       => $row['year'] ?? 'N/A',
-            'campus'     => $row['campus'] ?? 'DCC Main',
+            'campus'     => $row['campus'] ?? 'DCC TED',
         ]);
     }
 

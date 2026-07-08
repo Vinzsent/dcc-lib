@@ -9,7 +9,7 @@
 
     <div class="card bg-white p-6 rounded-lg shadow-sm">
         <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-            <h3 class="text-gray-700 font-bold text-lg">TED Shelves — DCC Main</h3>
+            <h3 class="text-gray-700 font-bold text-lg">TED Shelves — DCC TED</h3>
 
             <div class="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
                 <button onclick="showAddModal()"

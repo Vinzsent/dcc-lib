@@ -179,7 +179,7 @@ class LibraryController extends Controller
             'call_number' => $request->call_number,
             'location' => $request->location,
             'shelf_number' => $request->shelf_number,
-            'campus' => 'DCC Main',
+            'campus' => 'DCC TED',
             'status' => 'Available'
         ]);
 
@@ -224,7 +224,7 @@ class LibraryController extends Controller
         $request->validate($rules);
 
         $updateData = $request->only('accession_no', 'barcode', 'title', 'author', 'call_number', 'location', 'shelf_number', 'status');
-        $updateData['campus'] = 'DCC Main';
+        $updateData['campus'] = 'DCC TED';
 
         $book->update($updateData);
         return response()->json(['success' => true, 'message' => 'Book updated successfully']);
@@ -783,7 +783,7 @@ class LibraryController extends Controller
         // Route to the view matching the logged-in admin's campus scope.
         $view = match (session('location')) {
             'Master'   => 'admin.library.shelves_combined',
-            'DCC Main' => 'admin.library.shelves_ted',
+            'DCC TED'  => 'admin.library.shelves_ted',
             default    => 'admin.library.shelves_bed', // DCC BED + the 3 BED sub-campuses
         };
 
@@ -799,7 +799,7 @@ class LibraryController extends Controller
         ];
 
         if ($location === 'Master' || $location === 'DCC BED') {
-            $rules['campus'] = 'required|string|in:DCC Main,DCC BED Highschool,DCC BED SeniorHighSchool,DCC BED Elementary';
+            $rules['campus'] = 'required|string|in:DCC TED,DCC BED Highschool,DCC BED SeniorHighSchool,DCC BED Elementary';
         }
 
         $request->validate($rules);
@@ -825,7 +825,7 @@ class LibraryController extends Controller
         ];
 
         if ($location === 'Master' || $location === 'DCC BED') {
-            $rules['campus'] = 'required|string|in:DCC Main,DCC BED Highschool,DCC BED SeniorHighSchool,DCC BED Elementary';
+            $rules['campus'] = 'required|string|in:DCC TED,DCC BED Highschool,DCC BED SeniorHighSchool,DCC BED Elementary';
         }
 
         $request->validate($rules);
@@ -856,7 +856,7 @@ class LibraryController extends Controller
     {
         $location = session('location');
         return match ($location) {
-            'DCC Main' => ['DCC Main'],
+            'DCC TED' => ['DCC TED'],
             'DCC BED Highschool' => ['DCC BED Highschool'],
             'DCC BED SeniorHighSchool' => ['DCC BED SeniorHighSchool'],
             'DCC BED Elementary' => ['DCC BED Elementary'],

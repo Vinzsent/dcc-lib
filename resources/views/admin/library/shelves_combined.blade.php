@@ -6,21 +6,21 @@
 @php
     // Color-coded campus labels for the combined Master view
     $campusStyles = [
-        'DCC Main'                => ['label' => 'TED — DCC Main',          'cls' => 'bg-emerald-100 text-emerald-800'],
+        'DCC TED'                 => ['label' => 'TED — DCC TED',           'cls' => 'bg-emerald-100 text-emerald-800'],
         'DCC BED Highschool'      => ['label' => 'BED — High School',       'cls' => 'bg-amber-100 text-amber-800'],
         'DCC BED SeniorHighSchool'=> ['label' => 'BED — Senior High School','cls' => 'bg-orange-100 text-orange-800'],
         'DCC BED Elementary'      => ['label' => 'BED — Elementary',        'cls' => 'bg-yellow-100 text-yellow-800'],
     ];
 
     $allCampuses = [
-        'DCC Main'                 => 'TED — DCC Main',
+        'DCC TED'                  => 'TED — DCC TED',
         'DCC BED Highschool'       => 'BED — High School',
         'DCC BED SeniorHighSchool' => 'BED — Senior High School',
         'DCC BED Elementary'       => 'BED — Elementary',
     ];
 
     $total   = $shelves->count();
-    $tedCount = $shelves->where('campus', 'DCC Main')->count();
+    $tedCount = $shelves->where('campus', 'DCC TED')->count();
     $bedCount = $total - $tedCount;
 @endphp
 

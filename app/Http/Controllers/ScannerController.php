@@ -49,7 +49,7 @@ class ScannerController extends Controller
             // Fallback
         }
 
-        if ($location === 'DCC Main') {
+        if ($location === 'DCC TED') {
             // Exclude all BED grade-level students (check both grade and year columns)
             $query->where(function ($q) use ($bedGrades, $hasGradeColumn) {
                 if ($hasGradeColumn) {
@@ -90,7 +90,15 @@ class ScannerController extends Controller
     public function index()
     {
         $today = Carbon::today();
-        $location = session('location');
+
+        // Default to 'DCC BED' on first visit so the session is never null
+        // (the JS syncCampus() call on page load will immediately override this
+        //  with whatever the dropdown shows, but this protects any race).
+        if (!session()->has('scanner_campus')) {
+            session(['scanner_campus' => 'DCC BED']);
+        }
+
+        $location = session('scanner_campus') ?? session('location');
 
         $query = Inout::query();
         if ($location && $location !== 'Master') {
@@ -114,7 +122,7 @@ class ScannerController extends Controller
             return response()->json(['success' => false, 'message' => 'No Student ID or RFID provided.'], 400);
         }
 
-        $location = session('location');
+        $location = session('scanner_campus') ?? session('location');
         $query = Student::where(function ($q) use ($sid) {
             $q->where('sid', $sid)
                 ->orWhere('rfid', $sid);
@@ -164,7 +172,7 @@ class ScannerController extends Controller
             $now = Carbon::now();
             $newLog = Inout::create([
                 'sid' => $canonicalSid,
-                'campus' => $student->campus,
+                'campus' => ($location && $location !== 'Master') ? $this->getCampus($location) : $student->campus,
                 'rfid' => $student->rfid,
                 'firstname' => $student->firstname,
                 'lastname' => $student->lastname,
@@ -206,10 +214,10 @@ class ScannerController extends Controller
 
         // Record the campus where the employee physically tapped (the scanner's
         // location), not their home/registered campus. This way an employee
-        // registered at BED who taps at DCC Main is logged as "DCC Main".
+        // registered at BED who taps at DCC TED is logged as "DCC TED".
         // Falls back to the employee's home campus when the scanner session
         // has no location (e.g. Master/global view, or session not set).
-        $location = session('location');
+        $location = session('scanner_campus') ?? session('location');
         $tapCampus = ($location && $location !== 'Master')
             ? $this->getCampus($location)
             : ($employee->campus ?: null);
@@ -265,7 +273,7 @@ class ScannerController extends Controller
     private function getCounts()
     {
         $today = Carbon::today();
-        $location = session('location');
+        $location = session('scanner_campus') ?? session('location');
 
         $query = Inout::query();
         if ($location && $location !== 'Master') {
@@ -279,5 +287,17 @@ class ScannerController extends Controller
             'in' => (clone $query)->whereDate('time_in', $today)->count(),
             'out' => (clone $query)->whereDate('time_out', $today)->count(),
         ];
+    }
+
+    public function setCampus(Request $request)
+    {
+        $campus = $request->input('campus');
+        if (in_array($campus, ['DCC BED', 'DCC TED'])) {
+            session(['scanner_campus' => $campus]);
+        }
+        return response()->json([
+            'success' => true,
+            'counts' => $this->getCounts()
+        ]);
     }
 }

@@ -31,7 +31,7 @@ class AdminController extends Controller
 
     /**
      * Apply a grade-level filter to a Student query builder.
-     * - DCC Main: exclude all BED grade levels.
+     * - DCC TED: exclude all BED grade levels.
      * - DCC BED sub-locations: restrict to only the grades they manage.
      */
     private function applyGradeFilter($query, string $location)
@@ -65,7 +65,7 @@ class AdminController extends Controller
             // Fallback
         }
 
-        if ($location === 'DCC Main') {
+        if ($location === 'DCC TED') {
             // Exclude all BED grade-level students (check both grade and year columns)
             $query->where(function ($q) use ($bedGrades, $hasGradeColumn) {
                 if ($hasGradeColumn) {
@@ -251,7 +251,7 @@ class AdminController extends Controller
         $gradesQuery = Student::distinct()->whereNotNull('grade');
         $allowed = $this->getAllowedGrades($location ?? '');
 
-        if ($location === 'DCC Main') {
+        if ($location === 'DCC TED') {
             $yearsQuery->whereNotIn(\DB::raw('LOWER(year)'), $bedGrades);
             $gradesQuery->whereNotIn(\DB::raw('LOWER(grade)'), $bedGrades);
         } elseif ($allowed !== null) {
@@ -354,14 +354,7 @@ class AdminController extends Controller
 
     public function studentLogs(Request $request)
     {
-        $location = session('location');
         $query = \App\Models\Inout::query();
-
-        if ($location && $location !== 'Master') {
-            $query->where('campus', $this->getCampus($location));
-        }
-
-        $this->applyGradeFilter($query, $location ?? '');
 
         // Search Filter (Global)
         if ($search = $request->input('search')) {
@@ -480,7 +473,7 @@ class AdminController extends Controller
 
         $allowed = $this->getAllowedGrades($location ?? '');
 
-        if ($location === 'DCC Main') {
+        if ($location === 'DCC TED') {
             $coursesQuery->whereNotIn(\DB::raw('LOWER(course)'), $bedGrades);
             $yearsQuery->whereNotIn(\DB::raw('LOWER(year)'), $bedGrades);
         } elseif ($allowed !== null) {
@@ -873,12 +866,7 @@ class AdminController extends Controller
 
     public function employeeLogs(Request $request)
     {
-        $location = session('location');
         $query = EmployeeLog::query();
-
-        if ($location && $location !== 'Master') {
-            $query->where('campus', $this->getCampus($location));
-        }
 
         // Search Filter (Global)
         if ($search = $request->input('search')) {

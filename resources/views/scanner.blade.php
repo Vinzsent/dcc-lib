@@ -1,4 +1,12 @@
 <!DOCTYPE html>
+@php
+    $currentCampus = session('scanner_campus') ?? session('location');
+    if ($currentCampus && str_starts_with($currentCampus, 'DCC BED')) {
+        $currentCampus = 'DCC BED';
+    } elseif ($currentCampus === 'DCC Main') {
+        $currentCampus = 'DCC TED';
+    }
+@endphp
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -32,8 +40,17 @@
         <div class="md:w-1/2 p-8 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-gray-100">
             <div class="text-center mb-8">
                 <img src="{{ asset('images/DCC2.png') }}" alt="DCC Logo" class="h-20 mx-auto mb-4 opacity-80" onerror="this.src='/logo.png'; this.classList.remove('grayscale')">
-                <h1 class="text-2xl font-bold text-gray-800">Library Attendance</h1>
+                <h1 class="text-2xl font-bold text-gray-800">Library Tapping System</h1>
                 <p class="text-gray-500 text-sm mt-1">Please tap or scan your Student ID</p>
+            </div>
+            
+            <!-- Scanner Library Campus Selection -->
+            <div class="mb-6 w-full max-w-xs">
+                <label for="scanner_campus" class="block text-xs font-semibold text-gray-400 uppercase mb-1 text-center">Library Campus Location</label>
+                <select id="scanner_campus" class="w-full px-4 py-2 bg-gray-50 border-2 border-gray-200 rounded-xl text-gray-700 font-semibold text-center focus:outline-none focus:border-emerald-600 transition-all cursor-pointer">
+                    <option value="DCC BED" {{ $currentCampus === 'DCC BED' ? 'selected' : '' }}>DCC BED Library</option>
+                    <option value="DCC TED" {{ $currentCampus === 'DCC TED' ? 'selected' : '' }}>DCC TED Library</option>
+                </select>
             </div>
 
             <!-- Invisible/Auto-focused Input -->
@@ -131,9 +148,48 @@
         const errorMsg = document.getElementById('error_message');
         const errorText = document.getElementById('error_text');
 
-        // Keep input focused
-        document.addEventListener('click', () => sidInput.focus());
-        window.addEventListener('load', () => sidInput.focus());
+        // Keep input focused (but not when interacting with the campus dropdown)
+        document.addEventListener('click', (e) => {
+            if (e.target.id !== 'scanner_campus') sidInput.focus();
+        });
+        // Sync the selected campus to the server session.
+        // Called on page load AND on every dropdown change so the session
+        // is always up-to-date before any scan is processed.
+        const campusSelect = document.getElementById('scanner_campus');
+
+        async function syncCampus(campus) {
+            try {
+                const res = await fetch("{{ route('scanner.set-campus') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({ campus })
+                });
+                const data = await res.json();
+                if (data.success && data.counts) {
+                    const si = document.getElementById('stat_inside');
+                    const sn = document.getElementById('stat_in');
+                    const so = document.getElementById('stat_out');
+                    if (si) si.innerText = data.counts.inside;
+                    if (sn) sn.innerText = data.counts.in;
+                    if (so) so.innerText = data.counts.out;
+                }
+            } catch (err) { /* silently ignore */ }
+        }
+
+        // Seed the session immediately on page load with the dropdown's current value
+        window.addEventListener('load', async () => {
+            await syncCampus(campusSelect.value);
+            sidInput.focus();
+        });
+
+        // Re-sync whenever the operator changes the campus
+        campusSelect.addEventListener('change', async function () {
+            await syncCampus(this.value);
+            sidInput.focus();
+        });
 
         // Handle scan
         sidInput.addEventListener('keypress', function (e) {

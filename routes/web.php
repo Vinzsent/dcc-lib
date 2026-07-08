@@ -13,6 +13,7 @@ Route::get('/', function () {
 
 Route::get('/scanner', [ScannerController::class, 'index'])->name('scanner');
 Route::post('/scan', [ScannerController::class, 'scan'])->name('scan');
+Route::post('/scanner/set-campus', [ScannerController::class, 'setCampus'])->name('scanner.set-campus');
 
 Route::get('/login', function () {
     return view('auth.login');

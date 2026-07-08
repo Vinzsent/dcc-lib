@@ -12,7 +12,7 @@ class AuthController extends Controller
         $credentials = $request->validate([
             'username' => 'required|string',
             'password' => 'required',
-            'location' => 'required|string|in:DCC Main,DCC BED,DCC BED SeniorHighSchool,DCC BED Highschool,DCC BED Elementary,Master'
+            'location' => 'required|string|in:DCC TED,DCC BED,DCC BED SeniorHighSchool,DCC BED Highschool,DCC BED Elementary,Master'
         ]);
 
         if (auth()->attempt(['username' => $credentials['username'], 'password' => $credentials['password']])) {

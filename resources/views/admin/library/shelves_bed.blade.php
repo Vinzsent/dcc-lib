@@ -4,7 +4,7 @@
 @section('header', 'Library - BED (Basic Education) Shelves')
 
 @php
-    // BED locations only — TED (DCC Main) is never an option here
+    // BED locations only — TED (DCC TED) is never an option here
     $bedCampuses = [
         'DCC BED Highschool'      => 'DCC BED High School',
         'DCC BED SeniorHighSchool' => 'DCC BED Senior High School',
