@@ -122,77 +122,73 @@ class ScannerController extends Controller
             return response()->json(['success' => false, 'message' => 'No Student ID or RFID provided.'], 400);
         }
 
-        $location = session('scanner_campus') ?? session('location');
-        $query = Student::where(function ($q) use ($sid) {
-            $q->where('sid', $sid)
-                ->orWhere('rfid', $sid);
-        });
+        $location = session('scanner_campus') ?? session('location') ?? 'DCC BED';
 
-        if ($location && $location !== 'Master') {
-            $query->where('campus', $this->getCampus($location));
-        }
-
-        $this->applyGradeFilter($query, $location ?? '');
-
-        $student = $query->first();
+        // Look up the student globally (no campus / grade filter) — same approach
+        // as employees so any student can tap at any campus's scanner.
+        $student = Student::where('sid', $sid)
+            ->orWhere('rfid', $sid)
+            ->first();
 
         if (!$student) {
-            // No student matched (or filtered out by campus/grade). Check for a
-            // matching employee globally — employees are not bound by campus so
-            // that an employee registered at one campus can tap in at any other.
+            // Not a student — try as an employee
             return $this->scanEmployee($sid);
         }
 
-        // Use canonical SID from student record for inout logs
+        // Resolve the campus to log: use the scanner's selected campus.
+        // Falls back to the student's registered campus if the scanner has no
+        // location in session (shouldn't happen after the page-load sync).
+        $tapCampus = ($location && $location !== 'Master')
+            ? $this->getCampus($location)
+            : ($student->campus ?: null);
+
         $canonicalSid = $student->sid;
 
-        // 2. Check for an active session (Time In but no Time Out)
+        // Check for an active Time-In with no Time-Out
         $activeLog = Inout::where('sid', $canonicalSid)
             ->whereNull('time_out')
             ->orderBy('time_in', 'desc')
             ->first();
 
         if ($activeLog) {
-            // 3. Perform Time Out
+            // Perform Time Out
             $now = Carbon::now();
-            $activeLog->update([
-                'time_out' => $now,
-            ]);
+            $activeLog->update(['time_out' => $now]);
 
             return response()->json([
                 'success' => true,
-                'status' => 'out',
+                'status'  => 'out',
                 'message' => 'Time Out recorded successfully.',
                 'student' => $student,
-                'time' => $now->format('h:i A'),
-                'counts' => $this->getCounts()
-            ]);
-        } else {
-            // 4. Perform Time In
-            $now = Carbon::now();
-            $newLog = Inout::create([
-                'sid' => $canonicalSid,
-                'campus' => ($location && $location !== 'Master') ? $this->getCampus($location) : $student->campus,
-                'rfid' => $student->rfid,
-                'firstname' => $student->firstname,
-                'lastname' => $student->lastname,
-                'department' => $student->department,
-                'course' => $student->course,
-                'section' => $student->section,
-                'year' => $student->year,
-                'profile' => $student->profile,
-                'time_in' => $now,
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'status' => 'in',
-                'message' => 'Time In recorded successfully.',
-                'student' => $student,
-                'time' => $now->format('h:i A'),
-                'counts' => $this->getCounts()
+                'time'    => $now->format('h:i A'),
+                'counts'  => $this->getCounts()
             ]);
         }
+
+        // Perform Time In
+        $now = Carbon::now();
+        Inout::create([
+            'sid'        => $canonicalSid,
+            'campus'     => $tapCampus,
+            'rfid'       => $student->rfid,
+            'firstname'  => $student->firstname,
+            'lastname'   => $student->lastname,
+            'department' => $student->department,
+            'course'     => $student->course,
+            'section'    => $student->section,
+            'year'       => $student->year,
+            'profile'    => $student->profile,
+            'time_in'    => $now,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'status'  => 'in',
+            'message' => 'Time In recorded successfully.',
+            'student' => $student,
+            'time'    => $now->format('h:i A'),
+            'counts'  => $this->getCounts()
+        ]);
     }
 
     /**
