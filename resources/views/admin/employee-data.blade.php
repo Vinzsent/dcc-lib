@@ -230,6 +230,10 @@
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                     <div class="md:col-span-2">
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Employee ID (EID) *</label>
+                        <input type="text" name="eid" required placeholder="Enter employee ID number" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition duration-200">
+                    </div>
+                    <div class="md:col-span-2">
                         <label class="block text-sm font-semibold text-gray-700 mb-1">RFID</label>
                         <input type="text" name="rfid" placeholder="Scan or enter RFID number" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition duration-200">
                     </div>
@@ -302,6 +306,10 @@
                 </div>
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Employee ID (EID) *</label>
+                        <input type="text" name="eid" id="edit_eid" required placeholder="Enter employee ID number" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition duration-200">
+                    </div>
                     <div class="md:col-span-2">
                         <label class="block text-sm font-semibold text-gray-700 mb-1">RFID</label>
                         <input type="text" name="rfid" id="edit_rfid" placeholder="Scan or enter RFID number" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition duration-200">
@@ -407,6 +415,7 @@
         const employee = JSON.parse(button.getAttribute('data-employee'));
         const updateUrl = "{{ route('admin.employee-data.update', ':id') }}";
         document.getElementById('editForm').action = updateUrl.replace(':id', employee.id);
+        document.getElementById('edit_eid').value = employee.eid || '';
         document.getElementById('edit_rfid').value = employee.rfid || '';
         document.getElementById('edit_firstname').value = employee.firstname || '';
         document.getElementById('edit_middlename').value = employee.middlename || '';
