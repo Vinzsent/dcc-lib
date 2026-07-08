@@ -57,6 +57,8 @@
                                     <option value="Student">Student</option>
                                     <option value="Faculty">Faculty</option>
                                     <option value="Staff">Staff</option>
+                                    <option value="Alumni">Alumni</option>
+                                    <option value="Visitor">Visitor</option>
                                 </select>
                             </div>
                         </div>
@@ -502,9 +504,10 @@
                     <p class="text-gray-500"><span class="font-semibold text-gray-700">Author:</span> ${book.author || 'No Author'}</p>
                     <p class="text-gray-500"><span class="font-semibold text-gray-700">Accession:</span> ${book.accession_no} &bull; <span class="font-semibold text-gray-700">Call No:</span> ${book.call_number}</p>
                     <p class="text-gray-500"><span class="font-semibold text-gray-700">Section:</span> ${book.book_section}</p>
-                    <p class="text-amber-800 font-semibold bg-amber-50 rounded p-1.5 border border-amber-100 flex justify-between items-center mt-1">
+                    <div class="text-amber-800 font-semibold bg-amber-50 rounded p-1.5 border border-amber-100 flex flex-wrap justify-between gap-1 mt-1 text-[10px]">
+                        <span>Borrowed: ${fmtFull(book.date_borrowed)}</span>
                         <span>Due: ${fmtFull(book.due_date)}</span>
-                    </p>
+                    </div>
                     <p class="text-emerald-700 font-bold mt-1">${fineText}</p>
                 `;
                 rBooksList.appendChild(bookEl);
@@ -542,7 +545,7 @@
                     <div style="font-weight: bold; font-size: 11px;">${idx + 1}. ${book.title}</div>
                     <div style="font-size: 9px; margin-top: 1px; line-height: 1.2;">
                         Acc: ${book.accession_no} &bull; Call: ${book.call_number}<br>
-                        Due: ${fmtFull(book.due_date)}<br>
+                        Borrowed: ${fmtFull(book.date_borrowed)} &bull; Due: ${fmtFull(book.due_date)}<br>
                         Section: ${book.book_section}<br>
                         Rate: ${getFineText(book.book_section)}
                     </div>
