@@ -760,12 +760,7 @@ class AdminController extends Controller
 
     public function employeeData(Request $request)
     {
-        $location = session('location');
         $query = Employee::query();
-
-        if ($location && $location !== 'Master') {
-            $query->where('campus', $this->getCampus($location));
-        }
 
         // Search Filter (Global)
         if ($search = $request->input('search')) {
@@ -831,6 +826,7 @@ class AdminController extends Controller
     public function storeEmployee(Request $request)
     {
         $data = $request->validate([
+            'eid' => 'required|string|max:255|unique:employees,eid',
             'rfid' => 'nullable|string|unique:employees|max:255',
             'firstname' => 'required|string|max:255',
             'middlename' => 'nullable|string|max:255',
@@ -852,6 +848,7 @@ class AdminController extends Controller
     public function updateEmployee(Request $request, Employee $employee)
     {
         $data = $request->validate([
+            'eid' => 'required|string|max:255|unique:employees,eid,' . $employee->id,
             'rfid' => 'nullable|string|max:255|unique:employees,rfid,' . $employee->id,
             'firstname' => 'required|string|max:255',
             'middlename' => 'nullable|string|max:255',
