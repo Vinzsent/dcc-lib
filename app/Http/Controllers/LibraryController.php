@@ -17,7 +17,7 @@ class LibraryController extends Controller
     public function booksIndex(Request $request)
     {
         $location = session('location');
-        $isElem = ($location === 'DCC BED Elementary');
+        $isElem = $location && str_starts_with($location, 'DCC BED');
 
         if ($isElem) {
             return $this->booksIndexElem($request);
@@ -141,7 +141,7 @@ class LibraryController extends Controller
     {
         $location = session('location');
 
-        if ($location === 'DCC BED Elementary') {
+        if ($location && str_starts_with($location, 'DCC BED')) {
             $request->validate([
                 'accession_no' => 'required|string|unique:books_elem,accession_number',
                 'title'        => 'required|string',
@@ -190,7 +190,7 @@ class LibraryController extends Controller
     {
         $location = session('location');
 
-        if ($location === 'DCC BED Elementary') {
+        if ($location && str_starts_with($location, 'DCC BED')) {
             $book = BookElem::findOrFail($accession_no);
             $request->validate([
                 'accession_no' => 'required|string|unique:books_elem,accession_number,' . $accession_no . ',accession_number',
@@ -234,7 +234,7 @@ class LibraryController extends Controller
     {
         $location = session('location');
 
-        if ($location === 'DCC BED Elementary') {
+        if ($location && str_starts_with($location, 'DCC BED')) {
             BookElem::findOrFail($accession_no)->delete();
         } else {
             Book::findOrFail($accession_no)->delete();
@@ -856,12 +856,12 @@ class LibraryController extends Controller
     {
         $location = session('location');
         return match ($location) {
-            'DCC TED' => ['DCC TED'],
+            // DCC TED has full (Master-level) access – no campus restriction
+            'DCC TED', 'Master' => null,
             'DCC BED Highschool' => ['DCC BED Highschool'],
             'DCC BED SeniorHighSchool' => ['DCC BED SeniorHighSchool'],
             'DCC BED Elementary' => ['DCC BED Elementary'],
             'DCC BED' => ['DCC BED Highschool', 'DCC BED SeniorHighSchool', 'DCC BED Elementary'],
-            'Master' => null, // no filter (shows all campuses including NULL)
             default => [], // fallback empty array
         };
     }

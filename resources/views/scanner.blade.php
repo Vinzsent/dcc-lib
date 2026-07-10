@@ -41,7 +41,7 @@
             <div class="text-center mb-8">
                 <img src="{{ asset('images/DCC2.png') }}" alt="DCC Logo" class="h-20 mx-auto mb-4 opacity-80" onerror="this.src='/logo.png'; this.classList.remove('grayscale')">
                 <h1 class="text-2xl font-bold text-gray-800">Library Tapping System</h1>
-                <p class="text-gray-500 text-sm mt-1">Please tap or scan your Student ID</p>
+                <p class="text-gray-500 text-sm mt-1">Please tap your ID</p>
             </div>
             
             <!-- Scanner Library Campus Selection -->

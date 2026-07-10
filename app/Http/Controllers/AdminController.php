@@ -65,21 +65,7 @@ class AdminController extends Controller
             // Fallback
         }
 
-        if ($location === 'DCC TED') {
-            // Exclude all BED grade-level students (check both grade and year columns)
-            $query->where(function ($q) use ($bedGrades, $hasGradeColumn) {
-                if ($hasGradeColumn) {
-                    $q->where(function ($sub) use ($bedGrades) {
-                        $sub->whereNull('grade')
-                            ->orWhereNotIn(\DB::raw('LOWER(grade)'), $bedGrades);
-                    });
-                }
-                $q->where(function ($sub) use ($bedGrades) {
-                    $sub->whereNull('year')
-                        ->orWhereNotIn(\DB::raw('LOWER(year)'), $bedGrades);
-                });
-            });
-        } elseif ($allowed !== null) {
+        if ($allowed !== null) {
             // Show ONLY students in the allowed grades (check grade or year)
             $query->where(function ($q) use ($allowed, $hasGradeColumn) {
                 if ($hasGradeColumn) {
@@ -95,12 +81,40 @@ class AdminController extends Controller
     }
 
     /**
+     * Returns true for accounts that see ALL data without campus/grade restriction.
+     * Both 'Master' and 'DCC TED' are global admins.
+     */
+    private function isGlobalAdmin(?string $location): bool
+    {
+        return in_array($location, ['Master', 'DCC TED'], true);
+    }
+
+    /**
      * Resolve the campus value used for campus-column filtering.
      * All DCC BED sub-locations belong to the 'DCC BED' campus.
      */
     private function getCampus(string $location): string
     {
         return str_starts_with($location, 'DCC BED') ? 'DCC BED' : $location;
+    }
+
+    /**
+     * Map the logged-in account's role to the equivalent location value
+     * used by getCampus()/applyGradeFilter()/getAllowedGrades() so that the
+     * student-data page is scoped strictly by the account's role.
+     */
+    private function roleToLocation(?string $role): string
+    {
+        return match ($role) {
+            'Admin TED'     => 'DCC TED',
+            'Admin BEDHS'   => 'DCC BED Highschool',
+            'Admin BEDSHS'  => 'DCC BED SeniorHighSchool',
+            'Admin BEDELEM' => 'DCC BED Elementary',
+            'Admin BED'     => 'DCC BED',
+            'Admin'         => 'DCC BED',
+            'Master'        => 'Master',
+            default         => 'Master',
+        };
     }
 
     public function index()
@@ -110,7 +124,7 @@ class AdminController extends Controller
         $studentQuery = Student::query();
         $inoutQuery = \App\Models\Inout::query();
 
-        if ($location && $location !== 'Master') {
+        if ($location && !$this->isGlobalAdmin($location)) {
             $campus = $this->getCampus($location);
             $studentQuery->where('campus', $campus);
             $inoutQuery->where('campus', $campus);
@@ -155,10 +169,10 @@ class AdminController extends Controller
 
     public function studentData(Request $request)
     {
-        $location = session('location');
+        $location = $this->roleToLocation(auth()->user()?->role);
         $query = Student::query();
 
-        if ($location && $location !== 'Master') {
+        if ($location && !$this->isGlobalAdmin($location)) {
             $query->where('campus', $this->getCampus($location));
         }
 
@@ -204,10 +218,11 @@ class AdminController extends Controller
             $query->where('course', 'like', "%{$request->course}%");
         }
         if ($request->filled('year')) {
-            $query->where('year', $request->year);
+            // Case-insensitive match so 'GRADE 11' and 'Grade 11' both work
+            $query->whereRaw('LOWER(year) = ?', [strtolower($request->year)]);
         }
         if ($request->filled('grade')) {
-            $query->where('grade', $request->grade);
+            $query->whereRaw('LOWER(grade) = ?', [strtolower($request->grade)]);
         }
         if ($request->filled('section')) {
             $query->where('section', 'like', "%{$request->section}%");
@@ -251,16 +266,24 @@ class AdminController extends Controller
         $gradesQuery = Student::distinct()->whereNotNull('grade');
         $allowed = $this->getAllowedGrades($location ?? '');
 
-        if ($location === 'DCC TED') {
-            $yearsQuery->whereNotIn(\DB::raw('LOWER(year)'), $bedGrades);
-            $gradesQuery->whereNotIn(\DB::raw('LOWER(grade)'), $bedGrades);
-        } elseif ($allowed !== null) {
+        if ($allowed !== null) {
             $yearsQuery->whereIn(\DB::raw('LOWER(year)'), $allowed);
             $gradesQuery->whereIn(\DB::raw('LOWER(grade)'), $allowed);
         }
 
-        $years  = $yearsQuery->pluck('year')->sort()->toArray();
-        $grades = $gradesQuery->pluck('grade')->toArray();
+        // Deduplicate case-insensitively (e.g. 'GRADE 1' and 'Grade 1' become one option)
+        // and sort naturally so '1st Year' < '2nd Year' < 'GRADE 1' < 'GRADE 2' …
+        $years = $yearsQuery->pluck('year')
+            ->unique(fn($y) => strtolower(trim($y)))
+            ->sortBy(fn($y) => strtolower(trim($y)))
+            ->values()
+            ->toArray();
+
+        $grades = $gradesQuery->pluck('grade')
+            ->unique(fn($g) => strtolower(trim($g)))
+            ->sortBy(fn($g) => strtolower(trim($g)))
+            ->values()
+            ->toArray();
 
         return view('admin.student-data', compact('students', 'departments', 'years', 'grades'));
     }
@@ -424,7 +447,7 @@ class AdminController extends Controller
             $query = \App\Models\Inout::query();
 
             // Apply location filter
-            if ($location && $location !== 'Master') {
+            if ($location && !$this->isGlobalAdmin($location)) {
                 $query->where('campus', $this->getCampus($location));
             }
 
@@ -449,7 +472,7 @@ class AdminController extends Controller
         $coursesQuery = Student::distinct()->whereNotNull('course')->where('course', '!=', 'N/A');
         $yearsQuery = Student::distinct()->whereNotNull('year')->where('year', '!=', 'N/A');
 
-        if ($location && $location !== 'Master') {
+        if ($location && !$this->isGlobalAdmin($location)) {
             $coursesQuery->where('campus', $this->getCampus($location));
             $yearsQuery->where('campus', $this->getCampus($location));
         }
@@ -473,10 +496,7 @@ class AdminController extends Controller
 
         $allowed = $this->getAllowedGrades($location ?? '');
 
-        if ($location === 'DCC TED') {
-            $coursesQuery->whereNotIn(\DB::raw('LOWER(course)'), $bedGrades);
-            $yearsQuery->whereNotIn(\DB::raw('LOWER(year)'), $bedGrades);
-        } elseif ($allowed !== null) {
+        if ($allowed !== null) {
             $coursesQuery->whereIn(\DB::raw('LOWER(course)'), $allowed);
             $yearsQuery->whereIn(\DB::raw('LOWER(year)'), $allowed);
         }
@@ -497,7 +517,7 @@ class AdminController extends Controller
         $location = session('location');
         $query = Student::query();
 
-        if ($location && $location !== 'Master') {
+        if ($location && !$this->isGlobalAdmin($location)) {
             $query->where('campus', $this->getCampus($location));
         }
 
