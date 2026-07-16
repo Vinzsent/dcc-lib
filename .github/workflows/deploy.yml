@@ -20,25 +20,8 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
-            # Ensure the web directory exists
-            sudo mkdir -p /var/www/html
-            
-            # Fix ownership so your user can write to it
-            sudo chown -R $USER:$USER /var/www/html
-            
-            # Navigate to the web directory
             cd /var/www/html
-            
-            # If this is the first deployment, clone the repo
-            if [ ! -d ".git" ]; then
-              git clone https://github.com/Vinzsent/dcc-lib.git .
-            else
-              git pull origin main
-            fi
-            
-            # Set proper permissions for web files
-            sudo chown -R www-data:www-data /var/www/html
-            sudo chmod -R 755 /var/www/html
-            
-            # Restart Apache to apply changes (optional)
+            git pull origin main
+            sudo chown -R www-data:www-data .
+            sudo chmod -R 755 .
             sudo systemctl restart apache2
