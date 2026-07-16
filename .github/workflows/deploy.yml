@@ -1,7 +1,33 @@
-name: Test Runner
-on: [push]
+name: Deploy to Ubuntu Server
+
+on:
+  push:
+    branches:
+      - main
+
 jobs:
-  test:
+  deploy:
     runs-on: self-hosted
     steps:
-      - run: echo "Hello from my Ubuntu server!"
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to /var/www/html
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            # Navigate to the web directory
+            cd /var/www/html
+
+            # Pull the latest changes
+            sudo git pull origin main
+
+            # Alternatively, you can sync files using rsync (recommended)
+            # sudo rsync -av --delete /path/to/your/repo/ /var/www/html/
+
+            # Restart Apache if needed
+            # sudo systemctl restart apache2
