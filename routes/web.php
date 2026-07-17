@@ -6,6 +6,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\ScannerController;
 use App\Http\Controllers\LibraryController;
+use App\Http\Controllers\ResearchController;
 
 Route::get('/', function () {
     return redirect()->route('login');
@@ -58,6 +59,11 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::post('/books', [LibraryController::class, 'booksStore'])->name('books.store');
         Route::put('/books/{accession_no}', [LibraryController::class, 'booksUpdate'])->name('books.update');
         Route::delete('/books/{accession_no}', [LibraryController::class, 'booksDestroy'])->name('books.destroy');
+
+        Route::get('/research', [ResearchController::class, 'index'])->name('research.index');
+        Route::post('/research', [ResearchController::class, 'store'])->name('research.store');
+        Route::put('/research/{accession_no}', [ResearchController::class, 'update'])->name('research.update');
+        Route::delete('/research/{accession_no}', [ResearchController::class, 'destroy'])->name('research.destroy');
 
         Route::get('/shelves', [LibraryController::class, 'shelvesIndex'])->name('shelves.index');
         Route::post('/shelves', [LibraryController::class, 'shelvesStore'])->name('shelves.store');
