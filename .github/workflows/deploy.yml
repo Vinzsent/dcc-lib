@@ -31,10 +31,12 @@ jobs:
               git clone https://github.com/Vinzsent/dcc-lib.git .
               sudo chown -R systemserver:systemserver .
             else
+              # Discard local changes to avoid merge conflicts
+              git reset --hard origin/main
               git pull origin main
             fi
             
-            # Set proper permissions (owner: systemserver, group: systemserver)
+            # Set proper permissions
             sudo chown -R systemserver:systemserver .
             sudo chmod -R 755 .
             sudo systemctl restart apache2
