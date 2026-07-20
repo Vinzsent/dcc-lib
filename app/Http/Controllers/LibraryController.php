@@ -525,6 +525,108 @@ class LibraryController extends Controller
         return view('admin.library.history', compact('transactions'));
     }
 
+    // ----- CHARGES / OVERDUE FINES -----
+    public function chargesIndex(Request $request)
+    {
+        $campuses = $this->getBookCampusFilter();
+        
+        $query = Transaction::with(['book', 'borrower'])
+            ->where(function ($q) {
+                $q->where('fine', '>', 0)
+                  ->orWhere(function ($sq) {
+                      $sq->where('status', 'Borrowed')
+                         ->where('due_date', '<', Carbon::now());
+                  });
+            });
+
+        if ($campuses !== null) {
+            $query->whereHas('book', function ($q) use ($campuses) {
+                $q->whereIn('campus', $campuses);
+            });
+        }
+
+        // Search Filter
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('borrower_id', 'like', "%{$search}%")
+                  ->orWhereHas('book', function ($bq) use ($search) {
+                      $bq->where('title', 'like', "%{$search}%")
+                        ->orWhere('accession_no', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        // Status Filter
+        if ($request->filled('status')) {
+            $status = $request->status;
+            if ($status === 'active') {
+                $query->where('status', 'Borrowed')
+                      ->where('due_date', '<', Carbon::now());
+            } elseif ($status === 'returned') {
+                $query->where('status', 'Returned')
+                      ->where('fine', '>', 0);
+            }
+        }
+
+        $query->orderBy('due_date', 'desc');
+
+        // Total active overdue books count
+        $totalActiveOverdueQuery = Transaction::where('status', 'Borrowed')
+            ->where('due_date', '<', Carbon::now());
+        if ($campuses !== null) {
+            $totalActiveOverdueQuery->whereHas('book', function ($q) use ($campuses) {
+                $q->whereIn('campus', $campuses);
+            });
+        }
+        $totalActiveOverdueCount = $totalActiveOverdueQuery->count();
+
+        // Total collected/recorded fines
+        $totalFinesQuery = Transaction::where('fine', '>', 0);
+        if ($campuses !== null) {
+            $totalFinesQuery->whereHas('book', function ($q) use ($campuses) {
+                $q->whereIn('campus', $campuses);
+            });
+        }
+        $totalFinesSum = $totalFinesQuery->sum('fine');
+
+        $transactions = $query->paginate(15)->withQueryString();
+
+        $now = Carbon::now();
+        $transactions->getCollection()->transform(function ($txn) use ($now) {
+            if ($txn->status === 'Borrowed' && $now->gt(Carbon::parse($txn->due_date))) {
+                $dueDate = Carbon::parse($txn->due_date);
+                if ($txn->book_section === 'Reserved') {
+                    $hoursOverdue = $now->diffInHours($dueDate);
+                    $txn->calculated_fine = max(1, $hoursOverdue) * 5;
+                } else {
+                    $daysOverdue = $now->diffInDays($dueDate);
+                    $txn->calculated_fine = $daysOverdue * 5;
+                }
+                $txn->is_active_overdue = true;
+            } else {
+                $txn->calculated_fine = $txn->fine;
+                $txn->is_active_overdue = false;
+            }
+            
+            if ($txn->borrower_type === 'App\Models\Student') {
+                $txn->borrower_details = Student::where('sid', $txn->borrower_id)
+                    ->orWhere('rfid', $txn->borrower_id)
+                    ->first();
+            } else {
+                $txn->borrower_details = Employee::where('id', $txn->borrower_id)
+                    ->orWhere('rfid', $txn->borrower_id)
+                    ->orWhere('eid', $txn->borrower_id)
+                    ->first();
+            }
+            
+            return $txn;
+        });
+
+        return view('admin.library.charges', compact('transactions', 'totalActiveOverdueCount', 'totalFinesSum'));
+    }
+
+
     // ----- REPORTS -----
     public function reportsIndex()
     {
