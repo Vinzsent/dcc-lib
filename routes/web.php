@@ -78,6 +78,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::post('/return', [LibraryController::class, 'returnUpdate'])->name('return.update');
 
         Route::get('/history', [LibraryController::class, 'historyIndex'])->name('history');
+        Route::get('/charges', [LibraryController::class, 'chargesIndex'])->name('charges.index');
         Route::get('/reports', [LibraryController::class, 'reportsIndex'])->name('reports');
         Route::get('/reports/export', [LibraryController::class, 'reportsExport'])->name('reports.export');
     });
