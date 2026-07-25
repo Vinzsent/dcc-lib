@@ -40,7 +40,7 @@
         <div class="md:w-1/2 p-8 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-gray-100">
             <div class="text-center mb-8">
                 <img src="{{ asset('images/DCC2.png') }}" alt="DCC Logo" class="h-20 mx-auto mb-4 opacity-80" onerror="this.src='/logo.png'; this.classList.remove('grayscale')">
-                <h1 class="text-2xl font-bold text-gray-800">Library Tapping System</h1>
+                <h1 class="text-2xl font-bold text-gray-800">Library Management System</h1>
                 <p class="text-gray-500 text-sm mt-1">Please tap your ID</p>
             </div>
             
@@ -48,8 +48,8 @@
             <div class="mb-6 w-full max-w-xs">
                 <label for="scanner_campus" class="block text-xs font-semibold text-gray-400 uppercase mb-1 text-center">Library Campus Location</label>
                 <select id="scanner_campus" class="w-full px-4 py-2 bg-gray-50 border-2 border-gray-200 rounded-xl text-gray-700 font-semibold text-center focus:outline-none focus:border-emerald-600 transition-all cursor-pointer">
-                    <option value="DCC BED" {{ $currentCampus === 'DCC BED' ? 'selected' : '' }}>DCC BED Library</option>
                     <option value="DCC TED" {{ $currentCampus === 'DCC TED' ? 'selected' : '' }}>DCC TED Library</option>
+                    <option value="DCC BED" {{ $currentCampus === 'DCC BED' ? 'selected' : '' }}>DCC BED Library</option>
                 </select>
             </div>
 
