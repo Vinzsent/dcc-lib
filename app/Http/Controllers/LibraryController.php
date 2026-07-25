@@ -483,10 +483,10 @@ class LibraryController extends Controller
 
         if ($now->gt($dueDate)) {
             if ($transaction->book_section === 'Reserved') {
-                $hoursOverdue = $now->diffInHours($dueDate);
+                $hoursOverdue = $dueDate->diffInHours($now);
                 $fine = max(1, $hoursOverdue) * 5;
             } else {
-                $daysOverdue = $now->diffInDays($dueDate);
+                $daysOverdue = $dueDate->diffInDays($now);
                 $fine = $daysOverdue * 5;
             }
         }
@@ -597,10 +597,10 @@ class LibraryController extends Controller
             if ($txn->status === 'Borrowed' && $now->gt(Carbon::parse($txn->due_date))) {
                 $dueDate = Carbon::parse($txn->due_date);
                 if ($txn->book_section === 'Reserved') {
-                    $hoursOverdue = $now->diffInHours($dueDate);
+                    $hoursOverdue = $dueDate->diffInHours($now);
                     $txn->calculated_fine = max(1, $hoursOverdue) * 5;
                 } else {
-                    $daysOverdue = $now->diffInDays($dueDate);
+                    $daysOverdue = $dueDate->diffInDays($now);
                     $txn->calculated_fine = $daysOverdue * 5;
                 }
                 $txn->is_active_overdue = true;
