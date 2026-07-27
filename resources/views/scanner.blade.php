@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 @php
-    $currentCampus = session('scanner_campus') ?? session('location');
+    $currentCampus = session('scanner_campus') ?? session('location') ?? 'DCC TED';
     if ($currentCampus && str_starts_with($currentCampus, 'DCC BED')) {
         $currentCampus = 'DCC BED';
     } elseif ($currentCampus === 'DCC Main') {
@@ -360,7 +360,7 @@
         // Live Clock
         function updateClock() {
             const now = new Date();
-            document.getElementById('real_time').innerText = now.toLocaleTimeString([], { hour12: false });
+            document.getElementById('real_time').innerText = now.toLocaleTimeString([], { hour12: true });
             document.getElementById('real_date').innerText = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' });
         }
         setInterval(updateClock, 1000);
