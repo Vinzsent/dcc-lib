@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Student Attendance Logs</title>
+    <title>Employee Attendance Logs</title>
     <style>
         body { font-family: 'Helvetica', sans-serif; font-size: 12px; }
         .header { text-align: center; margin-bottom: 20px; }
@@ -17,7 +17,7 @@
 </head>
 <body>
     <div class="header">
-        <h1>DCC Library Attendance Report</h1>
+        <h1>DCC Library Employee Attendance Report</h1>
         <p>Campus: {{ $location ?? 'All Campuses' }}</p>
         <p>Date Generated: {{ now()->format('M d, Y h:i A') }}</p>
     </div>
@@ -25,25 +25,38 @@
     <table>
         <thead>
             <tr>
-                <th>Student</th>
+                <th>Employee</th>
                 <th>Campus</th>
-                <th>Dept</th>
-                <th>Course/Section</th>
+                <th>Department</th>
+                <th>Position</th>
                 <th>Date</th>
                 <th>Time In</th>
                 <th>Time Out</th>
+                <th>Duration</th>
             </tr>
         </thead>
         <tbody>
             @foreach($logs as $log)
+            @php
+                $timeIn = \Carbon\Carbon::parse($log->time_in);
+                $timeOut = $log->time_out ? \Carbon\Carbon::parse($log->time_out) : null;
+                $duration = 'Active';
+                if ($timeOut) {
+                    $diffInMinutes = $timeIn->diffInMinutes($timeOut);
+                    $hours = floor($diffInMinutes / 60);
+                    $minutes = $diffInMinutes % 60;
+                    $duration = sprintf('%d:%02d', $hours, $minutes);
+                }
+            @endphp
             <tr>
-                <td>{{ $log->firstname }} {{ $log->lastname }}<br><small>{{ $log->sid }}</small></td>
-                <td>{{ $log->campus }}</td>
-                <td>{{ $log->department }}</td>
-                <td>{{ $log->course }} {{ $log->section }}</td>
-                <td>{{ \Carbon\Carbon::parse($log->time_in)->format('Y-m-d') }}</td>
-                <td class="status-in">{{ \Carbon\Carbon::parse($log->time_in)->format('h:i A') }}</td>
-                <td class="status-out">{{ $log->time_out ? \Carbon\Carbon::parse($log->time_out)->format('h:i A') : 'Active' }}</td>
+                <td>{{ $log->firstname }} {{ $log->lastname }}<br><small>{{ $log->eid }}</small></td>
+                <td>{{ $log->campus ?? 'N/A' }}</td>
+                <td>{{ $log->department ?? 'N/A' }}</td>
+                <td>{{ $log->position ?? 'N/A' }}</td>
+                <td>{{ $timeIn->format('Y-m-d') }}</td>
+                <td class="status-in">{{ $timeIn->format('h:i A') }}</td>
+                <td class="status-out">{{ $timeOut ? $timeOut->format('h:i A') : 'Active' }}</td>
+                <td>{{ $duration }}</td>
             </tr>
             @endforeach
         </tbody>

@@ -117,6 +117,35 @@ class AdminController extends Controller
         };
     }
 
+    /**
+     * Returns the allowed departments for employee logs based on the admin's role.
+     * - Admin TED: only COLLEGE and ADMIN MAIN departments
+     * - Admin BEDELEM: only ELEMENTARY department
+     * - Master and others: all departments (null = no filter)
+     */
+    private function getAllowedEmployeeDepartments(?string $role): ?array
+    {
+        return match ($role) {
+            'Admin TED'     => ['COLLEGE', 'ADMIN MAIN'],
+            'Admin BEDELEM' => ['ELEMENTARY'],
+            default         => null, // no department restriction
+        };
+    }
+
+    /**
+     * Apply department filter to an EmployeeLog query based on the admin's role.
+     */
+    private function applyEmployeeDepartmentFilter($query, ?string $role)
+    {
+        $allowedDepartments = $this->getAllowedEmployeeDepartments($role);
+
+        if ($allowedDepartments !== null) {
+            $query->whereIn(\DB::raw('UPPER(department)'), $allowedDepartments);
+        }
+
+        return $query;
+    }
+
     public function index()
     {
         $location = session('location');
@@ -167,9 +196,15 @@ class AdminController extends Controller
         ));
     }
 
+    private function getLocation(): string
+    {
+        return session('location') ?: $this->roleToLocation(auth()->user()?->role);
+    }
+
     public function studentData(Request $request)
     {
-        $location = $this->roleToLocation(auth()->user()?->role);
+        $location = $this->getLocation();
+        $isBed = str_starts_with($location, 'DCC BED');
         $query = Student::query();
 
         if ($location && !$this->isGlobalAdmin($location)) {
@@ -285,47 +320,45 @@ class AdminController extends Controller
             ->values()
             ->toArray();
 
-        return view('admin.student-data', compact('students', 'departments', 'years', 'grades'));
+        return view('admin.student-data', compact('students', 'departments', 'years', 'grades', 'isBed', 'location'));
     }
 
     // BED Campus account
     public function storeStudent(Request $request)
     {
-        $loc = session('location', '');
-        $isBed = str_starts_with($loc, 'DCC BED');
+        $location = $this->getLocation();
+        $isBed = str_starts_with($location, 'DCC BED');
 
         if ($isBed) {
             $data = $request->validate([
-                'sid' => 'required|string|unique:students|max:255',
-                'rfid' => 'nullable|string|unique:students|max:255',
+                'sid'       => 'required|string|unique:students|max:255',
+                'rfid'      => 'nullable|string|unique:students|max:255',
                 'firstname' => 'required|string|max:255',
-                'lastname' => 'required|string|max:255',
-                'grade' => 'required|string|max:255',
-                'section' => 'required|string|max:255',
+                'middlename' => 'nullable|string|max:255',
+                'lastname'  => 'required|string|max:255',
+                'grade'     => 'required|string|max:255',
+                'section'   => 'required|string|max:255',
             ]);
             $data['department'] = null;
-            $data['course'] = 'N/A';
-            $data['year'] = 'N/A';
+            $data['course']     = 'N/A';
+            $data['year']       = 'N/A';
         } else {
             $data = $request->validate([
-                'sid' => 'required|string|unique:students|max:255',
-                'rfid' => 'nullable|string|unique:students|max:255',
+                'sid'       => 'required|string|unique:students|max:255',
+                'rfid'      => 'nullable|string|unique:students|max:255',
                 'firstname' => 'required|string|max:255',
-                'lastname' => 'required|string|max:255',
+                'middlename' => 'nullable|string|max:255',
+                'lastname'  => 'required|string|max:255',
                 'department' => 'required|string|max:255',
-                'course' => 'required|string|max:255',
-                'year' => 'required|string|max:255',
+                'course'    => 'required|string|max:255',
+                'year'      => 'required|string|max:255',
             ]);
-            $data['grade'] = null;
+            $data['grade']   = null;
             $data['section'] = null;
         }
 
-        // The line `$data = $request->all();` from the instruction was removed
-        // as it would overwrite the validated and defaulted data.
-        // The validated data is already assigned to $data in the conditional blocks.
-
-        if (session('location') && session('location') !== 'Master') {
-            $data['campus'] = $this->getCampus(session('location'));
+        if ($location !== 'Master') {
+            $data['campus'] = $this->getCampus($location);
         }
 
         Student::create($data);
@@ -335,32 +368,34 @@ class AdminController extends Controller
 
     public function updateStudent(Request $request, Student $student)
     {
-        $loc = session('location', '');
-        $isBed = str_starts_with($loc, 'DCC BED');
+        $location = $this->getLocation();
+        $isBed = str_starts_with($location, 'DCC BED');
 
         if ($isBed) {
             $data = $request->validate([
-                'sid' => 'required|string|max:255|unique:students,sid,' . $student->id,
-                'rfid' => 'nullable|string|max:255|unique:students,rfid,' . $student->id,
+                'sid'       => 'required|string|max:255|unique:students,sid,' . $student->id,
+                'rfid'      => 'nullable|string|max:255|unique:students,rfid,' . $student->id,
                 'firstname' => 'required|string|max:255',
-                'lastname' => 'required|string|max:255',
-                'grade' => 'required|string|max:255',
-                'section' => 'required|string|max:255',
+                'middlename' => 'nullable|string|max:255',
+                'lastname'  => 'required|string|max:255',
+                'grade'     => 'required|string|max:255',
+                'section'   => 'required|string|max:255',
             ]);
             $data['department'] = null;
-            $data['course'] = 'N/A';
-            $data['year'] = 'N/A';
+            $data['course']     = 'N/A';
+            $data['year']       = 'N/A';
         } else {
             $data = $request->validate([
-                'sid' => 'required|string|max:255|unique:students,sid,' . $student->id,
-                'rfid' => 'nullable|string|max:255|unique:students,rfid,' . $student->id,
+                'sid'       => 'required|string|max:255|unique:students,sid,' . $student->id,
+                'rfid'      => 'nullable|string|max:255|unique:students,rfid,' . $student->id,
                 'firstname' => 'required|string|max:255',
-                'lastname' => 'required|string|max:255',
+                'middlename' => 'nullable|string|max:255',
+                'lastname'  => 'required|string|max:255',
                 'department' => 'required|string|max:255',
-                'course' => 'required|string|max:255',
-                'year' => 'required|string|max:255',
+                'course'    => 'required|string|max:255',
+                'year'      => 'required|string|max:255',
             ]);
-            $data['grade'] = null;
+            $data['grade']   = null;
             $data['section'] = null;
         }
 
@@ -377,7 +412,14 @@ class AdminController extends Controller
 
     public function studentLogs(Request $request)
     {
+        $location = $this->roleToLocation(auth()->user()?->role);
         $query = \App\Models\Inout::query();
+
+        if ($location && !$this->isGlobalAdmin($location)) {
+            $query->where('campus', $this->getCampus($location));
+        }
+
+        $this->applyGradeFilter($query, $location ?? '');
 
         // Search Filter (Global)
         if ($search = $request->input('search')) {
@@ -441,6 +483,7 @@ class AdminController extends Controller
 
         // Initialize course summary
         $courseSummary = null;
+        $courseSummaryDetails = null;
 
         // If date range is provided, fetch course summary
         if ($startDate && $endDate) {
@@ -466,6 +509,39 @@ class AdminController extends Controller
                 ->groupBy('course')
                 ->orderBy('total_logs', 'desc')
                 ->get();
+
+            // Fetch detailed logs with time in/out for the course summary
+            $detailsQuery = \App\Models\Inout::query();
+
+            // Apply location filter
+            if ($location && !$this->isGlobalAdmin($location)) {
+                $detailsQuery->where('campus', $this->getCampus($location));
+            }
+
+            $this->applyGradeFilter($detailsQuery, $location ?? '');
+
+            // Apply date range filter
+            $detailsQuery->whereBetween('time_in', [
+                $startDate . ' 00:00:00',
+                $endDate . ' 23:59:59'
+            ]);
+
+            // Fetch all logs with time in/out, grouped by course
+            $courseSummaryDetails = $detailsQuery->select(
+                'course',
+                'sid',
+                'firstname',
+                'middlename',
+                'lastname',
+                'time_in',
+                'time_out'
+            )
+                ->whereNotNull('course')
+                ->where('course', '!=', '')
+                ->orderBy('course')
+                ->orderBy('time_in', 'desc')
+                ->get()
+                ->groupBy('course');
         }
 
         // Get unique courses and years for the student report filters
@@ -506,10 +582,13 @@ class AdminController extends Controller
 
         // Return JSON for AJAX preview requests
         if ($request->ajax()) {
-            return response()->json($courseSummary ?? []);
+            return response()->json([
+                'summary' => $courseSummary ?? [],
+                'details' => $courseSummaryDetails ?? []
+            ]);
         }
 
-        return view('admin.reports', compact('courseSummary', 'startDate', 'endDate', 'courses', 'years'));
+        return view('admin.reports', compact('courseSummary', 'courseSummaryDetails', 'startDate', 'endDate', 'courses', 'years'));
     }
 
     public function studentPreview(Request $request)
@@ -541,6 +620,44 @@ class AdminController extends Controller
                 'course' => $student->course,
                 'year' => $student->year,
                 'campus' => $student->campus
+            ];
+        });
+
+        return response()->json($paginator);
+    }
+
+    public function employeePreview(Request $request)
+    {
+        $query = EmployeeLog::query();
+
+        // Apply department filter based on admin role
+        $this->applyEmployeeDepartmentFilter($query, auth()->user()?->role);
+
+        // Date range filter
+        if ($request->filled('start_date')) {
+            $query->whereDate('time_in', '>=', $request->start_date);
+        }
+
+        if ($request->filled('end_date')) {
+            $query->whereDate('time_in', '<=', $request->end_date);
+        }
+
+        $paginator = $query->latest('time_in')->paginate(10);
+
+        // Transform for AJAX response
+        $paginator->getCollection()->transform(function ($log) {
+            return [
+                'eid' => $log->eid,
+                'campus' => $log->campus ?? 'N/A',
+                'rfid' => $log->rfid ?? 'N/A',
+                'firstname' => $log->firstname,
+                'middlename' => $log->middlename ?? '',
+                'lastname' => $log->lastname,
+                'department' => $log->department ?? 'N/A',
+                'position' => $log->position ?? 'N/A',
+                'employment_type' => $log->employment_type ?? 'N/A',
+                'time_in' => $log->time_in,
+                'time_out' => $log->time_out,
             ];
         });
 
@@ -888,6 +1005,9 @@ class AdminController extends Controller
     {
         $query = EmployeeLog::query();
 
+        // Apply department filter based on admin role
+        $this->applyEmployeeDepartmentFilter($query, auth()->user()?->role);
+
         // Search Filter (Global)
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
@@ -935,5 +1055,82 @@ class AdminController extends Controller
         $employmentTypes = EmployeeLog::distinct()->pluck('employment_type')->filter()->toArray();
 
         return view('admin.employee-logs', compact('logs', 'campuses', 'departments', 'employmentTypes'));
+    }
+
+    public function exportEmployeeLogs(Request $request)
+    {
+        $format = $request->input('format', 'csv');
+        $query = EmployeeLog::query();
+
+        // Apply department filter based on admin role
+        $this->applyEmployeeDepartmentFilter($query, auth()->user()?->role);
+
+        // Date range filter
+        if ($request->filled('start_date')) {
+            $query->whereDate('time_in', '>=', $request->start_date);
+        }
+
+        if ($request->filled('end_date')) {
+            $query->whereDate('time_in', '<=', $request->end_date);
+        }
+
+        // PDF Export
+        if ($format === 'pdf') {
+            $logs = $query->latest('time_in')->get();
+            $location = session('location');
+            $pdf = Pdf::loadView('admin.exports.employee-logs-pdf', compact('logs', 'location'));
+            return $pdf->download('employee_logs_' . date('Y-m-d_H-i-s') . '.pdf');
+        }
+
+        // CSV Export - Streaming
+        $fileName = 'employee_logs_' . date('Y-m-d_H-i-s') . '.csv';
+
+        $headers = [
+            "Content-type"        => "text/csv",
+            "Content-Disposition" => "attachment; filename=$fileName",
+            "Pragma"              => "no-cache",
+            "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
+            "Expires"             => "0"
+        ];
+
+        $columns = ['Campus', 'Employee ID', 'RFID', 'First Name', 'Middle Name', 'Last Name', 'Department', 'Position', 'Employment Type', 'Date', 'Time In', 'Time Out', 'Duration (Hours)'];
+
+        $callback = function () use ($query, $columns) {
+            $file = fopen('php://output', 'w');
+            fputcsv($file, $columns);
+
+            foreach ($query->latest('time_in')->cursor() as $log) {
+                $timeIn = \Carbon\Carbon::parse($log->time_in);
+                $timeOut = $log->time_out ? \Carbon\Carbon::parse($log->time_out) : null;
+
+                $duration = 'Active';
+                if ($timeOut) {
+                    $diffInMinutes = $timeIn->diffInMinutes($timeOut);
+                    $hours = floor($diffInMinutes / 60);
+                    $minutes = $diffInMinutes % 60;
+                    $duration = sprintf('%d:%02d', $hours, $minutes);
+                }
+
+                fputcsv($file, [
+                    $log->campus ?? 'N/A',
+                    $log->eid,
+                    $log->rfid ?? 'N/A',
+                    $log->firstname,
+                    $log->middlename ?? '',
+                    $log->lastname,
+                    $log->department ?? 'N/A',
+                    $log->position ?? 'N/A',
+                    $log->employment_type ?? 'N/A',
+                    $timeIn->format('Y-m-d'),
+                    $timeIn->format('h:i A'),
+                    $timeOut ? $timeOut->format('h:i A') : 'Active',
+                    $duration
+                ]);
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
     }
 }

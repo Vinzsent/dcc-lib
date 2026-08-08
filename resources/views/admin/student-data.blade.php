@@ -91,7 +91,7 @@
                             </a>
                         </th>
 
-                        @if (!str_starts_with(session('location'), 'DCC BED'))
+                        @if (!$isBed)
                             <th class="py-3 px-6">
                                 <a href="{{ request()->fullUrlWithQuery(['sort' => 'department', 'direction' => request('sort') == 'department' && request('direction') == 'asc' ? 'desc' : 'asc']) }}" class="flex items-center gap-1 group">
                                     Department
@@ -112,7 +112,7 @@
                             </th>
                         @endif
 
-                        @if(str_starts_with(session('location'), 'DCC BED'))
+                        @if($isBed)
                         <th class="py-3 px-6">
                             <a href="{{ request()->fullUrlWithQuery(['sort' => 'grade', 'direction' => request('sort') == 'grade' && request('direction') == 'asc' ? 'desc' : 'asc']) }}" class="flex items-center gap-1 group">
                                 Grade
@@ -147,7 +147,7 @@
                             <input type="text" name="lastname" value="{{ request('lastname') }}" placeholder="Last" class="text-xs border border-gray-300 rounded p-1 w-full focus:ring-1 focus:ring-green-500 outline-none">
                         </td>
                         
-                        @if (!str_starts_with(session('location'), 'DCC BED'))
+                        @if (!$isBed)
                             <td class="py-2 px-6">
                                 <select name="department" onchange="this.form.submit()" class="text-xs border border-gray-300 rounded p-1 w-full focus:ring-1 focus:ring-green-500 outline-none">
                                     <option value="">All</option>
@@ -169,7 +169,7 @@
                             </td>
                         @endif
 
-                        @if(str_starts_with(session('location'), 'DCC BED'))
+                        @if($isBed)
                             <td class="py-2 px-6">
                                 <select name="grade" onchange="this.form.submit()" class="text-xs border border-gray-300 rounded p-1 w-full focus:ring-1 focus:ring-green-500 outline-none">
                                     <option value="">Grade</option>
@@ -207,7 +207,7 @@
                             {{ $student->lastname }}
                         </td>
 
-                        @if(!str_starts_with(session('location'), 'DCC BED'))
+                        @if(!$isBed)
                             <td class="py-4 px-6 text-gray-700">
                                 {{ $student->department }}
                             </td>
@@ -221,7 +221,7 @@
                             </td>
                         @endif
 
-                        @if(str_starts_with(session('location'), 'DCC BED'))
+                        @if($isBed)
                         <td class="py-4 px-6">
                             {{ $student->grade }}
                         </td>
@@ -247,7 +247,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="{{ str_starts_with(session('location'), 'DCC BED') ? 8 : 9 }}" class="py-4 px-6 text-center text-gray-400 italic">
+                        <td colspan="{{ $isBed ? 8 : 9 }}" class="py-4 px-6 text-center text-gray-400 italic">
                             No students found in the records.
                         </td>
                     </tr>
@@ -302,12 +302,20 @@
                                 <input type="text" name="lastname" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm border p-2">
                             </div>
                         </div>
-                        @if(str_starts_with(session('location'), 'DCC BED'))
+                        @if($isBed)
+                            @php
+                                $modalGradeOptions = match ($location ?? '') {
+                                    'DCC BED Elementary'       => ['Kinder 2', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6'],
+                                    'DCC BED Highschool'       => ['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10'],
+                                    'DCC BED SeniorHighSchool' => ['Grade 11', 'Grade 12'],
+                                    default                    => ['Kinder 2', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'],
+                                };
+                            @endphp
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Grade</label>
                                 <select name="grade" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm border p-2">
                                     <option value="">Select Grade</option>
-                                    @foreach(['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'] as $g)
+                                    @foreach($modalGradeOptions as $g)
                                         <option value="{{ $g }}">{{ $g }}</option>
                                     @endforeach
                                 </select>
@@ -410,12 +418,12 @@
                                 <input type="text" name="lastname" id="edit_lastname" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm border p-2">
                             </div>
                         </div>
-                        @if(str_starts_with(session('location'), 'DCC BED'))
+                        @if($isBed)
                             <div>
                                 <label class="block text-sm font-medium text-gray-700" for="edit_grade">Grade</label>
                                 <select name="grade" id="edit_grade" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm border p-2">
                                     <option value="">Select Grade</option>
-                                    @foreach(['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'] as $g)
+                                    @foreach($modalGradeOptions as $g)
                                         <option value="{{ $g }}">{{ $g }}</option>
                                     @endforeach
                                 </select>

@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
-@section('title', 'Book Database - Elementary')
-@section('header', 'Library - Book Database (Elementary)')
+@section('title', 'Book Database - High School')
+@section('header', 'Library - Book Database (High School)')
 
 @section('content')
     <!-- Alerts -->
@@ -9,7 +9,7 @@
 
     <div class="card bg-white p-6 rounded-lg shadow-sm">
         <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-            <h3 class="text-gray-700 font-bold text-lg">Master List of Books &mdash; Elementary</h3>
+            <h3 class="text-gray-700 font-bold text-lg">Master List of Books &mdash; High School</h3>
 
             <div class="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
                 <div class="relative w-full md:w-80">
@@ -50,7 +50,7 @@
                             d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
                             clip-rule="evenodd" />
                     </svg>
-                    Add Collections
+                    Add Book
                 </button>
             </div>
         </div>
@@ -65,9 +65,9 @@
                     <thead>
                         <tr class="bg-gray-100 text-gray-600 uppercase text-sm leading-normal">
                             <th class="py-3 px-6">
-                                <a href="{{ request()->fullUrlWithQuery(['sort' => 'accession_number', 'direction' => request('sort') == 'accession_number' && request('direction') == 'asc' ? 'desc' : 'asc']) }}" class="flex items-center gap-1 group">
+                                <a href="{{ request()->fullUrlWithQuery(['sort' => 'accession_no', 'direction' => request('sort') == 'accession_no' && request('direction') == 'asc' ? 'desc' : 'asc']) }}" class="flex items-center gap-1 group">
                                     Accession No
-                                    @include('partials.sort-icon', ['field' => 'accession_number'])
+                                    @include('partials.sort-icon', ['field' => 'accession_no'])
                                 </a>
                             </th>
                             <th class="py-3 px-6">
@@ -92,6 +92,18 @@
                                 <a href="{{ request()->fullUrlWithQuery(['sort' => 'call_number', 'direction' => request('sort') == 'call_number' && request('direction') == 'asc' ? 'desc' : 'asc']) }}" class="flex items-center gap-1 group">
                                     Call Number
                                     @include('partials.sort-icon', ['field' => 'call_number'])
+                                </a>
+                            </th>
+                            <th class="py-3 px-6">
+                                <a href="{{ request()->fullUrlWithQuery(['sort' => 'location', 'direction' => request('sort') == 'location' && request('direction') == 'asc' ? 'desc' : 'asc']) }}" class="flex items-center gap-1 group">
+                                    Location
+                                    @include('partials.sort-icon', ['field' => 'location'])
+                                </a>
+                            </th>
+                            <th class="py-3 px-6">
+                                <a href="{{ request()->fullUrlWithQuery(['sort' => 'shelf_number', 'direction' => request('sort') == 'shelf_number' && request('direction') == 'asc' ? 'desc' : 'asc']) }}" class="flex items-center gap-1 group">
+                                    Shelf
+                                    @include('partials.sort-icon', ['field' => 'shelf_number'])
                                 </a>
                             </th>
                             <th class="py-3 px-6">
@@ -120,6 +132,21 @@
                                 <input type="text" name="call_number" value="{{ request('call_number') }}" placeholder="Call No" class="text-xs border border-gray-300 rounded p-1 w-full focus:ring-1 focus:ring-green-500 outline-none">
                             </td>
                             <td class="py-2 px-6">
+                                <select name="location" class="text-xs border border-gray-300 rounded p-1 w-full focus:ring-1 focus:ring-green-500 outline-none">
+                                    <option value="">All</option>
+                                    <option value="Circulation" {{ request('location') === 'Circulation' ? 'selected' : '' }}>Circulation</option>
+                                    <option value="Filipiniana" {{ request('location') === 'Filipiniana' ? 'selected' : '' }}>Filipiniana</option>
+                                    <option value="Fiction" {{ request('location') === 'Fiction' ? 'selected' : '' }}>Fiction</option>
+                                    <option value="Reserve" {{ request('location') === 'Reserve' ? 'selected' : '' }}>Reserve</option>
+                                    <option value="Periodicals" {{ request('location') === 'Periodicals' ? 'selected' : '' }}>Periodicals</option>
+                                    <option value="Reference" {{ request('location') === 'Reference' ? 'selected' : '' }}>Reference</option>
+                                    <option value="Children's" {{ request('location') === "Children's" ? 'selected' : '' }}>Children's</option>
+                                </select>
+                            </td>
+                            <td class="py-2 px-6">
+                                <input type="text" name="shelf_number" value="{{ request('shelf_number') }}" placeholder="Shelf" class="text-xs border border-gray-300 rounded p-1 w-full focus:ring-1 focus:ring-green-500 outline-none">
+                            </td>
+                            <td class="py-2 px-6">
                                 <select name="status" class="text-xs border border-gray-300 rounded p-1 w-full focus:ring-1 focus:ring-green-500 outline-none">
                                     <option value="">All</option>
                                     <option value="Available" {{ request('status') === 'Available' ? 'selected' : '' }}>Available</option>
@@ -133,17 +160,19 @@
                         </tr>
                     </thead>
                     <tbody class="text-gray-600 text-sm font-light">
-                        @forelse ($elemBooks as $book)
+                        @forelse ($books as $book)
                             <tr class="border-b border-gray-200 hover:bg-gray-50 transition"
-                                id="book-row-{{ $book->accession_number }}">
-                                <td class="py-4 px-6 font-medium text-gray-800">{{ $book->accession_number ?? 'N/A' }}</td>
+                                id="book-row-{{ $book->accession_no }}">
+                                <td class="py-4 px-6 font-medium text-gray-800">{{ $book->accession_no ?? 'N/A' }}</td>
                                 <td class="py-4 px-6">{{ $book->barcode ?? 'N/A' }}</td>
                                 <td class="py-4 px-6">{{ $book->title }}</td>
                                 <td class="py-4 px-6">{{ $book->author }}</td>
                                 <td class="py-4 px-6">{{ $book->call_number ?? 'N/A' }}</td>
+                                <td class="py-4 px-6">{{ $book->location ?? 'N/A' }}</td>
+                                <td class="py-4 px-6">{{ $book->shelf_number ?? 'N/A' }}</td>
                                 <td class="py-4 px-6">
-                                    @if(strtolower($book->status ?? 'available') === 'available')
-                                        <span class="bg-green-100 text-green-700 py-1 px-3 rounded-full text-xs font-medium">{{ $book->status ?? 'Available' }}</span>
+                                    @if($book->status === 'Available')
+                                        <span class="bg-green-100 text-green-700 py-1 px-3 rounded-full text-xs font-medium">{{ $book->status }}</span>
                                     @else
                                         <span class="bg-red-100 text-red-700 py-1 px-3 rounded-full text-xs font-medium">{{ $book->status }}</span>
                                     @endif
@@ -158,7 +187,7 @@
                                                     d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                             </svg>
                                         </button>
-                                        <button type="button" onclick="deleteBook('{{ $book->accession_number }}')"
+                                        <button type="button" onclick="deleteBook('{{ $book->accession_no }}')"
                                             class="text-red-600 hover:text-red-800 transition" title="Delete">
                                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none"
                                                 viewBox="0 0 24 24" stroke="currentColor">
@@ -171,7 +200,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="py-4 px-6 text-center text-gray-400 italic">No books in the database.</td>
+                                <td colspan="9" class="py-4 px-6 text-center text-gray-400 italic">No books in the database.</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -182,12 +211,12 @@
         <!-- Pagination -->
         <div class="mt-6 flex flex-col md:flex-row justify-between items-center gap-4 border-t border-gray-100 pt-6">
             <div class="text-sm text-gray-500">
-                Showing <span class="font-semibold text-gray-700">{{ $elemBooks->firstItem() ?? 0 }}</span>
-                to <span class="font-semibold text-gray-700">{{ $elemBooks->lastItem() ?? 0 }}</span>
-                of <span class="font-semibold text-gray-700">{{ $elemBooks->total() }}</span> books
+                Showing <span class="font-semibold text-gray-700">{{ $books->firstItem() ?? 0 }}</span>
+                to <span class="font-semibold text-gray-700">{{ $books->lastItem() ?? 0 }}</span>
+                of <span class="font-semibold text-gray-700">{{ $books->total() }}</span> books
             </div>
             <div class="pagination-container">
-                {{ $elemBooks->withQueryString()->links() }}
+                {{ $books->withQueryString()->links() }}
             </div>
         </div>
     </div>
@@ -201,7 +230,7 @@
                 <form id="addBookForm" onsubmit="submitAddForm(event)">
                     <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                         <h3 class="text-lg font-bold text-gray-900 mb-4">Add New Book</h3>
-                        <div class="grid grid-cols-1 gap-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Accession No</label>
                                 <input type="text" name="accession_no" id="add_accession_no" required
@@ -212,12 +241,12 @@
                                 <input type="text" name="barcode"
                                     class="mt-1 block w-full border-gray-300 rounded-md shadow-sm border p-2">
                             </div>
-                            <div>
+                            <div class="sm:col-span-2">
                                 <label class="block text-sm font-medium text-gray-700">Title</label>
                                 <input type="text" name="title" required
                                     class="mt-1 block w-full border-gray-300 rounded-md shadow-sm border p-2">
                             </div>
-                            <div>
+                            <div class="sm:col-span-2">
                                 <label class="block text-sm font-medium text-gray-700">Author</label>
                                 <input type="text" name="author" required
                                     class="mt-1 block w-full border-gray-300 rounded-md shadow-sm border p-2">
@@ -226,6 +255,30 @@
                                 <label class="block text-sm font-medium text-gray-700">Call Number</label>
                                 <input type="text" name="call_number" required
                                     class="mt-1 block w-full border-gray-300 rounded-md shadow-sm border p-2">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Location</label>
+                                <select name="location"
+                                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm border p-2">
+                                    <option value="">-- Select --</option>
+                                    <option value="Circulation">Circulation</option>
+                                    <option value="Filipiniana">Filipiniana</option>
+                                    <option value="Fiction">Fiction</option>
+                                    <option value="Reserve">Reserve</option>
+                                    <option value="Periodicals">Periodicals</option>
+                                    <option value="Reference">Reference</option>
+                                    <option value="Children's">Children's</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Shelf</label>
+                                <select name="shelf_number"
+                                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm border p-2">
+                                    <option value="">-- No Specific Shelf --</option>
+                                    @foreach ($shelves as $shelf)
+                                        <option value="{{ $shelf->shelf_number }}">{{ $shelf->shelf_number }} {{ $shelf->description ? '(' . $shelf->description . ')' : '' }}</option>
+                                    @endforeach
+                                </select>
                             </div>
                         </div>
                     </div>
@@ -249,7 +302,7 @@
                 <form id="editBookForm" onsubmit="submitEditForm(event)">
                     <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                         <h3 class="text-lg font-bold text-gray-900 mb-4">Edit Book</h3>
-                        <div class="grid grid-cols-1 gap-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Accession No</label>
                                 <input type="text" id="edit_accession_no_display" name="accession_no"
@@ -261,12 +314,12 @@
                                 <input type="text" id="edit_barcode" name="barcode"
                                     class="mt-1 block w-full border-gray-300 rounded-md shadow-sm border p-2">
                             </div>
-                            <div>
+                            <div class="sm:col-span-2">
                                 <label class="block text-sm font-medium text-gray-700">Title</label>
                                 <input type="text" id="edit_title" name="title" required
                                     class="mt-1 block w-full border-gray-300 rounded-md shadow-sm border p-2">
                             </div>
-                            <div>
+                            <div class="sm:col-span-2">
                                 <label class="block text-sm font-medium text-gray-700">Author</label>
                                 <input type="text" id="edit_author" name="author" required
                                     class="mt-1 block w-full border-gray-300 rounded-md shadow-sm border p-2">
@@ -277,8 +330,32 @@
                                     class="mt-1 block w-full border-gray-300 rounded-md shadow-sm border p-2">
                             </div>
                             <div>
+                                <label class="block text-sm font-medium text-gray-700">Location</label>
+                                <select id="edit_location" name="location"
+                                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm border p-2">
+                                    <option value="">-- Select --</option>
+                                    <option value="Circulation">Circulation</option>
+                                    <option value="Filipiniana">Filipiniana</option>
+                                    <option value="Fiction">Fiction</option>
+                                    <option value="Reserve">Reserve</option>
+                                    <option value="Periodicals">Periodicals</option>
+                                    <option value="Reference">Reference</option>
+                                    <option value="Children's">Children's</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Shelf</label>
+                                <select name="shelf_number" id="edit_shelf_number"
+                                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm border p-2">
+                                    <option value="">-- No Specific Shelf --</option>
+                                    @foreach ($shelves as $shelf)
+                                        <option value="{{ $shelf->shelf_number }}">{{ $shelf->shelf_number }} {{ $shelf->description ? '(' . $shelf->description . ')' : '' }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div>
                                 <label class="block text-sm font-medium text-gray-700">Status</label>
-                                <select id="edit_status" name="status" required
+                                <select id="edit_status" name="status"
                                     class="mt-1 block w-full border-gray-300 rounded-md shadow-sm border p-2">
                                     <option value="Available">Available</option>
                                     <option value="Borrowed">Borrowed</option>
@@ -320,14 +397,23 @@
         }
 
         function showEditModal(book) {
-            const accNo = book.accession_number || book.id;
+            const accNo = book.accession_no || book.id;
             document.getElementById('edit_accession_no_original').value = accNo;
             document.getElementById('edit_accession_no_display').value = accNo;
             document.getElementById('edit_barcode').value = book.barcode || '';
-            document.getElementById('edit_title').value = book.title || '';
-            document.getElementById('edit_author').value = book.author || '';
+            document.getElementById('edit_title').value = book.title;
+            document.getElementById('edit_author').value = book.author;
             document.getElementById('edit_call_number').value = book.call_number || '';
-            document.getElementById('edit_status').value = book.status || 'Available';
+            let loc = book.location || '';
+            if (loc === 'Periodical') loc = 'Periodicals';
+            if (loc === 'Reserved') loc = 'Reserve';
+            if (loc === 'Filipiana' || loc === 'Filipinana') loc = 'Filipiniana';
+            document.getElementById('edit_location').value = loc;
+            document.getElementById('edit_shelf_number').value = book.shelf_number || '';
+            let status = book.status || 'Available';
+            if (status.toLowerCase() === 'available') status = 'Available';
+            if (status.toLowerCase() === 'borrowed') status = 'Borrowed';
+            document.getElementById('edit_status').value = status;
             document.getElementById('editBookModal').classList.remove('hidden');
         }
 
@@ -368,15 +454,12 @@
             e.preventDefault();
             const formData = new FormData(e.target);
             const data = Object.fromEntries(formData.entries());
-
             const originalAccNo = document.getElementById('edit_accession_no_original').value;
             if (!originalAccNo) {
                 showAlert('Error: Original Accession Number is missing.', 'error');
                 return;
             }
-
             const url = '{{ route('admin.library.books.update', ':id') }}'.replace(':id', originalAccNo);
-
             try {
                 const res = await fetch(url, {
                     method: 'POST',
@@ -385,10 +468,7 @@
                         'Accept': 'application/json',
                         'X-CSRF-TOKEN': '{{ csrf_token() }}'
                     },
-                    body: JSON.stringify({
-                        ...data,
-                        _method: 'PUT'
-                    })
+                    body: JSON.stringify({ ...data, _method: 'PUT' })
                 });
                 const result = await res.json();
                 if (result.success) {
@@ -403,9 +483,9 @@
             }
         }
 
-        async function deleteBook(accession_number) {
+        async function deleteBook(accession_no) {
             if (!confirm('Are you sure you want to delete this book?')) return;
-            const url = '{{ route('admin.library.books.destroy', ':id') }}'.replace(':id', accession_number);
+            const url = '{{ route('admin.library.books.destroy', ':id') }}'.replace(':id', accession_no);
             try {
                 const res = await fetch(url, {
                     method: 'POST',
@@ -419,7 +499,7 @@
                 const result = await res.json();
                 if (result.success) {
                     showAlert(result.message);
-                    const row = document.getElementById('book-row-' + accession_number);
+                    const row = document.getElementById('book-row-' + accession_no);
                     if (row) row.remove();
                 } else {
                     showAlert(result.message || 'Error deleting book', 'error');

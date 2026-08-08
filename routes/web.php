@@ -44,9 +44,11 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::put('/employee-data/{employee}', [AdminController::class, 'updateEmployee'])->name('employee-data.update');
     Route::delete('/employee-data/{employee}', [AdminController::class, 'destroyEmployee'])->name('employee-data.destroy');
     Route::get('/employee-logs', [AdminController::class, 'employeeLogs'])->name('employee-logs');
+    Route::get('/employee-logs/export', [AdminController::class, 'exportEmployeeLogs'])->name('employee-logs.export');
 
     Route::get('/reports', [AdminController::class, 'reports'])->name('reports');
     Route::get('/reports/student-preview', [AdminController::class, 'studentPreview'])->name('reports.student-preview');
+    Route::get('/reports/employee-preview', [AdminController::class, 'employeePreview'])->name('reports.employee-preview');
 
     Route::get('/users', [AdminController::class, 'users'])->name('users');
     Route::post('/users', [AdminController::class, 'storeUser'])->name('users.store');
@@ -59,6 +61,11 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::post('/books', [LibraryController::class, 'booksStore'])->name('books.store');
         Route::put('/books/{accession_no}', [LibraryController::class, 'booksUpdate'])->name('books.update');
         Route::delete('/books/{accession_no}', [LibraryController::class, 'booksDestroy'])->name('books.destroy');
+
+        Route::get('/books-elementary', [LibraryController::class, 'booksElementaryIndex'])->name('books.elementary');
+        Route::post('/books-elementary', [LibraryController::class, 'booksElementaryStore'])->name('books.elementary.store');
+        Route::put('/books-elementary/{accession_no}', [LibraryController::class, 'booksElementaryUpdate'])->name('books.elementary.update');
+        Route::delete('/books-elementary/{accession_no}', [LibraryController::class, 'booksElementaryDestroy'])->name('books.elementary.destroy');
 
         Route::get('/research', [ResearchController::class, 'index'])->name('research.index');
         Route::post('/research', [ResearchController::class, 'store'])->name('research.store');

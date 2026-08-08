@@ -181,7 +181,7 @@
                  <img src="{{ asset('images/DCC2.png') }}" alt="DCC Logo" style="max-width: 100px; height: auto;">
                  <img src="{{ asset('images/LIBRARY LOGO.webp') }}" alt="Library Logo" style="max-width: 100px; height: auto;">
              </div>
-             <h3>DCC Library System</h3>
+             <h3>Library Management System</h3>
         </div>
         <form method="POST" action="{{ route('login') }}">
             @csrf

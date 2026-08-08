@@ -3,12 +3,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Schema;
 
 class Transaction extends Model
 {
     protected $fillable = [
         'borrower_id', 'borrower_type', 'borrow_type', 'book_section',
-        'accession_no', 'date_borrowed', 'due_date', 'date_returned',
+        'book_id', 'book_type', 'accession_no', 'date_borrowed', 'due_date', 'date_returned',
         'fine', 'status'
     ];
 
@@ -19,6 +20,20 @@ class Transaction extends Model
 
     public function book()
     {
-        return $this->belongsTo(Book::class, 'accession_no', 'accession_no');
+        $modelClass = $this->book_type ?? Book::class;
+        $relatedModel = new $modelClass();
+        $table = $this->getTable();
+        $relatedTable = $relatedModel->getTable();
+        $ownerKey = $relatedModel->getKeyName();
+
+        if (Schema::hasColumn($table, 'accession_no') && Schema::hasColumn($relatedTable, $ownerKey)) {
+            return $this->belongsTo($modelClass, 'accession_no', $ownerKey);
+        }
+
+        if (Schema::hasColumn($table, 'book_id') && Schema::hasColumn($relatedTable, $ownerKey)) {
+            return $this->belongsTo($modelClass, 'book_id', $ownerKey);
+        }
+
+        return $this->belongsTo($modelClass, $this->getKeyName(), $ownerKey);
     }
 }

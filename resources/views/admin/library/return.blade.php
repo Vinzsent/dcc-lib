@@ -98,7 +98,7 @@
                     } else {
                         document.getElementById('overdue-text').innerText = `Book is ${result.days_overdue} day(s) overdue.`;
                     }
-                    document.getElementById('fine-amount').innerText = `Fine: ₱${result.fine}`;
+                    document.getElementById('fine-amount').innerText = `Fine: ₱${Math.floor(result.fine)}`;
                 }
 
                 document.getElementById('accession_no').value = '';

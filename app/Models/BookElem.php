@@ -10,12 +10,16 @@ class BookElem extends Model
     protected $primaryKey = 'accession_number';
     public $incrementing = false;
     protected $keyType = 'string';
-    public $timestamps = false;
 
     protected $fillable = [
         'accession_number',
+        'barcode',
         'call_number',
         'title',
         'author',
+        'location',
+        'shelf_number',
+        'campus',
+        'status',
     ];
 }

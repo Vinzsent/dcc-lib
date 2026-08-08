@@ -158,7 +158,7 @@
                         </svg>
                         <span class="font-bold text-lg tracking-wide">Borrow Receipt</span>
                     </div>
-                    <p class="text-emerald-100 text-xs">DCC Library System</p>
+                    <p class="text-emerald-100 text-xs">Library Management System</p>
                 </div>
 
                 {{-- Empty state --}}
@@ -255,7 +255,7 @@
 
             {{-- Header --}}
             <div style="text-align: center; padding-bottom: 4px; border-bottom: 1.5px solid #000; margin-bottom: 6px;">
-                <div style="font-size: 13px; font-weight: bold; letter-spacing: 0.5px; line-height: 1.2;">DCC LIBRARY SYSTEM</div>
+                <div style="font-size: 13px; font-weight: bold; letter-spacing: 0.5px; line-height: 1.2;">Library Management System</div>
                 <div style="font-size: 11px; font-weight: bold; margin-top: 2px;">Borrow Receipt</div>
                 <div id="p-date" style="font-size: 10px; margin-top: 1px; font-weight: bold;"></div>
             </div>

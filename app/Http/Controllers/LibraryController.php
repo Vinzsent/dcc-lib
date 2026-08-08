@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Book;
 use App\Models\BookElem;
+use App\Models\BookHighschool;
 use App\Models\Transaction;
 use App\Models\Student;
 use App\Models\Employee;
@@ -14,28 +15,81 @@ use App\Models\Research;
 
 class LibraryController extends Controller
 {
+    /**
+     * Map user role to the book model class they should use.
+     */
+    private function getBookModel(): string
+    {
+        $role = auth()->user()?->role ?? '';
+
+        return match ($role) {
+            'Admin BEDELEM' => BookElem::class,
+            'Admin BEDHS'   => BookHighschool::class,
+            default         => Book::class, // Master, Admin, Admin TED, Admin BED, Admin BEDSHS
+        };
+    }
+
+    /**
+     * Map user role to the book table name.
+     */
+    private function getBookTable(): string
+    {
+        $role = auth()->user()?->role ?? '';
+
+        return match ($role) {
+            'Admin BEDELEM' => 'books_elem',
+            'Admin BEDHS'   => 'books_highschool',
+            default         => 'books_main',
+        };
+    }
+
+    /**
+     * Get the allowed campuses based on the user's role.
+     * Returns null if no filtering (Master / Admin).
+     */
+    private function getRoleCampusFilter(): ?array
+    {
+        $role = auth()->user()?->role ?? '';
+
+        return match ($role) {
+            'Admin TED'     => null, // Global admin for books_main (TED / Main campus books)
+            'Admin BEDELEM' => null, // separate table, no campus filter needed
+            'Admin BEDHS'   => null, // separate table, no campus filter needed
+            'Admin BED'     => ['DCC BED Highschool', 'DCC BED SeniorHighSchool', 'DCC BED Elementary'],
+            'Admin BEDSHS'  => ['DCC BED SeniorHighSchool'],
+            'Master'        => null, // sees all
+            default         => null,
+        };
+    }
+
     // ----- BOOKS CRUD -----
     public function booksIndex(Request $request)
     {
-        $location = session('location');
-        $isElem = $location && str_starts_with($location, 'DCC BED');
+        $modelClass = $this->getBookModel();
+        $campusFilter = $this->getRoleCampusFilter();
+        $table = $this->getBookTable();
 
-        if ($isElem) {
+        // Elementary books use the dedicated elem view
+        if ($modelClass === BookElem::class) {
             return $this->booksIndexElem($request);
         }
 
-        $campuses = $this->getBookCampusFilter();
-        $booksQuery = Book::query();
-        $shelvesQuery = Shelf::orderBy('shelf_number');
+        if ($modelClass === BookHighschool::class) {
+            $query = BookHighschool::query();
+            $shelvesQuery = Shelf::orderBy('shelf_number');
+        } else {
+            $query = Book::query();
+            $shelvesQuery = Shelf::orderBy('shelf_number');
 
-        if ($campuses !== null) {
-            $booksQuery->whereIn('campus', $campuses);
-            $shelvesQuery->whereIn('campus', $campuses);
+            if ($campusFilter !== null) {
+                $query->whereIn('campus', $campusFilter);
+                $shelvesQuery->whereIn('campus', $campusFilter);
+            }
         }
 
         // Global Search
         if ($search = $request->input('search')) {
-            $booksQuery->where(function ($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->where('accession_no', 'like', "%{$search}%")
                   ->orWhere('barcode', 'like', "%{$search}%")
                   ->orWhere('title', 'like', "%{$search}%")
@@ -50,31 +104,31 @@ class LibraryController extends Controller
 
         // Column-specific Filters
         if ($request->filled('accession_no')) {
-            $booksQuery->where('accession_no', 'like', "%{$request->accession_no}%");
+            $query->where('accession_no', 'like', "%{$request->accession_no}%");
         }
         if ($request->filled('barcode')) {
-            $booksQuery->where('barcode', 'like', "%{$request->barcode}%");
+            $query->where('barcode', 'like', "%{$request->barcode}%");
         }
         if ($request->filled('title')) {
-            $booksQuery->where('title', 'like', "%{$request->title}%");
+            $query->where('title', 'like', "%{$request->title}%");
         }
         if ($request->filled('author')) {
-            $booksQuery->where('author', 'like', "%{$request->author}%");
+            $query->where('author', 'like', "%{$request->author}%");
         }
         if ($request->filled('call_number')) {
-            $booksQuery->where('call_number', 'like', "%{$request->call_number}%");
+            $query->where('call_number', 'like', "%{$request->call_number}%");
         }
         if ($request->filled('location')) {
-            $booksQuery->where('location', 'like', "%{$request->location}%");
+            $query->where('location', 'like', "%{$request->location}%");
         }
         if ($request->filled('campus')) {
-            $booksQuery->where('campus', $request->campus);
+            $query->where('campus', $request->campus);
         }
         if ($request->filled('shelf_number')) {
-            $booksQuery->where('shelf_number', $request->shelf_number);
+            $query->where('shelf_number', $request->shelf_number);
         }
         if ($request->filled('status')) {
-            $booksQuery->where('status', $request->status);
+            $query->where('status', $request->status);
         }
 
         // Sorting
@@ -82,14 +136,20 @@ class LibraryController extends Controller
         $direction = $request->input('direction', 'desc');
         $allowedSorts = ['accession_no', 'barcode', 'title', 'author', 'call_number', 'location', 'campus', 'shelf_number', 'status', 'created_at'];
         if (in_array($sort, $allowedSorts)) {
-            $booksQuery->orderBy($sort, $direction);
+            $query->orderBy($sort, $direction);
         } else {
-            $booksQuery->latest();
+            $query->latest();
         }
 
-        $books = $booksQuery->paginate(10);
+        $books = $query->paginate(10);
         $shelves = $shelvesQuery->get();
-        return view('admin.library.books', compact('books', 'shelves'));
+
+        // Route to the correct view based on model
+        $view = ($modelClass === BookHighschool::class)
+            ? 'admin.library.books_highschool'
+            : 'admin.library.books';
+
+        return view($view, compact('books', 'shelves'));
     }
 
     /**
@@ -103,15 +163,20 @@ class LibraryController extends Controller
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('accession_number', 'like', "%{$search}%")
+                  ->orWhere('barcode', 'like', "%{$search}%")
                   ->orWhere('title', 'like', "%{$search}%")
                   ->orWhere('author', 'like', "%{$search}%")
-                  ->orWhere('call_number', 'like', "%{$search}%");
+                  ->orWhere('call_number', 'like', "%{$search}%")
+                  ->orWhere('status', 'like', "%{$search}%");
             });
         }
 
         // Column-specific Filters
         if ($request->filled('accession_no')) {
             $query->where('accession_number', 'like', "%{$request->accession_no}%");
+        }
+        if ($request->filled('barcode')) {
+            $query->where('barcode', 'like', "%{$request->barcode}%");
         }
         if ($request->filled('title')) {
             $query->where('title', 'like', "%{$request->title}%");
@@ -122,15 +187,18 @@ class LibraryController extends Controller
         if ($request->filled('call_number')) {
             $query->where('call_number', 'like', "%{$request->call_number}%");
         }
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
 
         // Sorting
-        $sort = $request->input('sort', 'title');
-        $direction = $request->input('direction', 'asc');
-        $allowedSorts = ['accession_number', 'title', 'author', 'call_number'];
+        $sort = $request->input('sort', 'created_at');
+        $direction = $request->input('direction', 'desc');
+        $allowedSorts = ['id', 'accession_number', 'barcode', 'title', 'author', 'call_number', 'status', 'created_at'];
         if (in_array($sort, $allowedSorts)) {
             $query->orderBy($sort, $direction);
         } else {
-            $query->orderBy('title', 'asc');
+            $query->orderBy('created_at', 'desc');
         }
 
         $elemBooks = $query->paginate(10);
@@ -138,13 +206,24 @@ class LibraryController extends Controller
         return view('admin.library.books_elem', compact('elemBooks', 'shelves'));
     }
 
+    public function booksElementaryIndex(Request $request)
+    {
+        if (auth()->user()?->role !== 'Admin BEDELEM') {
+            abort(403, 'This page is only available to the BED Elementary admin account.');
+        }
+
+        return $this->booksIndexElem($request);
+    }
+
     public function booksStore(Request $request)
     {
-        $location = session('location');
+        $role = auth()->user()?->role ?? '';
+        $modelClass = $this->getBookModel();
 
-        if ($location && str_starts_with($location, 'DCC BED')) {
+        if ($modelClass === BookElem::class) {
             $request->validate([
                 'accession_no' => 'required|string|unique:books_elem,accession_number',
+                'barcode'      => 'nullable|string|unique:books_elem,barcode',
                 'title'        => 'required|string',
                 'author'       => 'required|string',
                 'call_number'  => 'required|string',
@@ -152,14 +231,44 @@ class LibraryController extends Controller
 
             BookElem::create([
                 'accession_number' => $request->accession_no,
+                'barcode'          => $request->barcode,
                 'title'            => $request->title,
                 'author'           => $request->author,
                 'call_number'      => $request->call_number,
+                'campus'           => 'DCC BED Elementary',
+                'status'           => 'Available',
             ]);
 
             return response()->json(['success' => true, 'message' => 'Book added successfully']);
         }
 
+        if ($modelClass === BookHighschool::class) {
+            $request->validate([
+                'accession_no' => 'required|string|unique:books_highschool,accession_no',
+                'barcode' => 'nullable|string|unique:books_highschool,barcode',
+                'title' => 'required|string',
+                'author' => 'required|string',
+                'call_number' => 'required|string',
+                'location' => 'nullable|string',
+                'shelf_number' => 'nullable|string'
+            ]);
+
+            BookHighschool::create([
+                'accession_no' => $request->accession_no,
+                'barcode' => $request->barcode,
+                'title' => $request->title,
+                'author' => $request->author,
+                'call_number' => $request->call_number,
+                'location' => $request->location,
+                'shelf_number' => $request->shelf_number,
+                'campus' => 'DCC BED Highschool',
+                'status' => 'Available'
+            ]);
+
+            return response()->json(['success' => true, 'message' => 'Book added successfully']);
+        }
+
+        // Default: books_main (TED / Admin / Master)
         $rules = [
             'accession_no' => 'required|string|unique:books_main,accession_no',
             'barcode' => 'nullable|string|unique:books_main,barcode',
@@ -187,29 +296,81 @@ class LibraryController extends Controller
         return response()->json(['success' => true, 'message' => 'Book added successfully']);
     }
 
+    public function booksElementaryStore(Request $request)
+    {
+        if (auth()->user()?->role !== 'Admin BEDELEM') {
+            abort(403, 'Only the BED Elementary admin can add books here.');
+        }
+
+        $request->validate([
+            'accession_no' => 'required|string|unique:books_elem,accession_number',
+            'barcode' => 'nullable|string|unique:books_elem,barcode',
+            'title' => 'required|string',
+            'author' => 'required|string',
+            'call_number' => 'required|string',
+        ]);
+
+        BookElem::create([
+            'accession_number' => $request->accession_no,
+            'barcode' => $request->barcode,
+            'title' => $request->title,
+            'author' => $request->author,
+            'call_number' => $request->call_number,
+            'campus' => 'DCC BED Elementary',
+            'status' => 'Available',
+        ]);
+
+        return response()->json(['success' => true, 'message' => 'Book added successfully']);
+    }
+
     public function booksUpdate(Request $request, $accession_no)
     {
-        $location = session('location');
+        $modelClass = $this->getBookModel();
 
-        if ($location && str_starts_with($location, 'DCC BED')) {
+        if ($modelClass === BookElem::class) {
             $book = BookElem::findOrFail($accession_no);
             $request->validate([
                 'accession_no' => 'required|string|unique:books_elem,accession_number,' . $accession_no . ',accession_number',
+                'barcode'      => 'nullable|string|unique:books_elem,barcode,' . $accession_no . ',accession_number',
                 'title'        => 'required|string',
                 'author'       => 'required|string',
                 'call_number'  => 'required|string',
+                'status'       => 'nullable|string|in:Available,Borrowed,available,borrowed',
             ]);
 
             $book->update([
                 'accession_number' => $request->accession_no,
+                'barcode'          => $request->barcode,
                 'title'            => $request->title,
                 'author'           => $request->author,
                 'call_number'      => $request->call_number,
+                'status'           => $request->input('status', $book->status ?? 'Available'),
             ]);
 
             return response()->json(['success' => true, 'message' => 'Book updated successfully']);
         }
 
+        if ($modelClass === BookHighschool::class) {
+            $book = BookHighschool::findOrFail($accession_no);
+            $request->validate([
+                'accession_no' => 'required|string|unique:books_highschool,accession_no,' . $accession_no . ',accession_no',
+                'barcode' => 'nullable|string|unique:books_highschool,barcode,' . $accession_no . ',accession_no',
+                'title' => 'required|string',
+                'author' => 'required|string',
+                'call_number' => 'required|string',
+                'location' => 'nullable|string',
+                'shelf_number' => 'nullable|string',
+                'status' => 'required|in:Available,Borrowed,available,borrowed'
+            ]);
+
+            $updateData = $request->only('accession_no', 'barcode', 'title', 'author', 'call_number', 'location', 'shelf_number', 'status');
+            $updateData['campus'] = 'DCC BED Highschool';
+
+            $book->update($updateData);
+            return response()->json(['success' => true, 'message' => 'Book updated successfully']);
+        }
+
+        // Default: books_main
         $book = Book::findOrFail($accession_no);
         $rules = [
             'accession_no' => 'required|string|unique:books_main,accession_no,' . $accession_no . ',accession_no',
@@ -231,15 +392,54 @@ class LibraryController extends Controller
         return response()->json(['success' => true, 'message' => 'Book updated successfully']);
     }
 
+    public function booksElementaryUpdate(Request $request, $accession_no)
+    {
+        if (auth()->user()?->role !== 'Admin BEDELEM') {
+            abort(403, 'Only the BED Elementary admin can update books here.');
+        }
+
+        $book = BookElem::findOrFail($accession_no);
+        $request->validate([
+            'accession_no' => 'required|string|unique:books_elem,accession_number,' . $accession_no . ',accession_number',
+            'barcode' => 'nullable|string|unique:books_elem,barcode,' . $accession_no . ',accession_number',
+            'title' => 'required|string',
+            'author' => 'required|string',
+            'call_number' => 'required|string',
+        ]);
+
+        $book->update([
+            'accession_number' => $request->accession_no,
+            'barcode' => $request->barcode,
+            'title' => $request->title,
+            'author' => $request->author,
+            'call_number' => $request->call_number,
+        ]);
+
+        return response()->json(['success' => true, 'message' => 'Book updated successfully']);
+    }
+
     public function booksDestroy($accession_no)
     {
-        $location = session('location');
+        $modelClass = $this->getBookModel();
 
-        if ($location && str_starts_with($location, 'DCC BED')) {
+        if ($modelClass === BookElem::class) {
             BookElem::findOrFail($accession_no)->delete();
+        } elseif ($modelClass === BookHighschool::class) {
+            BookHighschool::findOrFail($accession_no)->delete();
         } else {
             Book::findOrFail($accession_no)->delete();
         }
+
+        return response()->json(['success' => true, 'message' => 'Book deleted successfully']);
+    }
+
+    public function booksElementaryDestroy($accession_no)
+    {
+        if (auth()->user()?->role !== 'Admin BEDELEM') {
+            abort(403, 'Only the BED Elementary admin can delete books here.');
+        }
+
+        BookElem::findOrFail($accession_no)->delete();
 
         return response()->json(['success' => true, 'message' => 'Book deleted successfully']);
     }
@@ -256,17 +456,31 @@ class LibraryController extends Controller
             'accession_no' => 'required|string',
         ]);
 
-        $campuses = $this->getBookCampusFilter();
-        $bookQuery = Book::where(function ($q) use ($request) {
-            $q->where('barcode', $request->accession_no)
-              ->orWhere('accession_no', $request->accession_no);
-        });
+        $modelClass = $this->getBookModel();
 
-        if ($campuses !== null) {
-            $bookQuery->whereIn('campus', $campuses);
+        if ($modelClass === BookElem::class) {
+            $book = BookElem::where(function ($q) use ($request) {
+                $q->where('barcode', $request->accession_no)
+                    ->orWhere('accession_number', $request->accession_no);
+            })->first();
+        } elseif ($modelClass === BookHighschool::class) {
+            $book = BookHighschool::where(function ($q) use ($request) {
+                $q->where('barcode', $request->accession_no)
+                    ->orWhere('accession_no', $request->accession_no);
+            })->first();
+        } else {
+            $campusFilter = $this->getRoleCampusFilter();
+            $bookQuery = Book::where(function ($q) use ($request) {
+                $q->where('barcode', $request->accession_no)
+                    ->orWhere('accession_no', $request->accession_no);
+            });
+
+            if ($campusFilter !== null) {
+                $bookQuery->whereIn('campus', $campusFilter);
+            }
+
+            $book = $bookQuery->first();
         }
-
-        $book = $bookQuery->first();
 
         if (!$book) {
             return response()->json(['success' => false, 'message' => 'Book not found (by barcode or accession no).'], 404);
@@ -276,14 +490,16 @@ class LibraryController extends Controller
             return response()->json(['success' => false, 'message' => 'Book is currently borrowed.'], 400);
         }
 
+        $accNo = $book->accession_no ?? $book->accession_number;
+
         return response()->json([
             'success' => true,
             'book' => [
-                'id' => $book->id,
+                'id' => $book->id ?? $book->accession_number,
                 'title' => $book->title,
                 'author' => $book->author,
                 'call_number' => $book->call_number,
-                'accession_no' => $book->accession_no,
+                'accession_no' => $accNo,
                 'barcode' => $book->barcode
             ]
         ]);
@@ -329,24 +545,37 @@ class LibraryController extends Controller
             return response()->json(['success' => false, 'message' => 'Borrower not found in Students or Employees.'], 404);
         }
 
-        $campuses = $this->getBookCampusFilter();
+        $modelClass = $this->getBookModel();
+        $campusFilter = $this->getRoleCampusFilter();
 
         try {
-            $transactionsData = \Illuminate\Support\Facades\DB::transaction(function () use ($booksList, $request, $borrower, $campuses) {
+            $transactionsData = \Illuminate\Support\Facades\DB::transaction(function () use ($booksList, $request, $borrower, $modelClass, $campusFilter) {
                 $createdTransactions = [];
                 $processedBooks = [];
 
                 foreach ($booksList as $item) {
-                    $bookQuery = Book::where(function ($q) use ($item) {
-                        $q->where('barcode', $item['accession_no'])
-                          ->orWhere('accession_no', $item['accession_no']);
-                    });
+                    if ($modelClass === BookElem::class) {
+                        $book = BookElem::where(function ($q) use ($item) {
+                            $q->where('barcode', $item['accession_no'])
+                              ->orWhere('accession_number', $item['accession_no']);
+                        })->first();
+                    } elseif ($modelClass === BookHighschool::class) {
+                        $book = BookHighschool::where(function ($q) use ($item) {
+                            $q->where('barcode', $item['accession_no'])
+                              ->orWhere('accession_no', $item['accession_no']);
+                        })->first();
+                    } else {
+                        $bookQuery = Book::where(function ($q) use ($item) {
+                            $q->where('barcode', $item['accession_no'])
+                              ->orWhere('accession_no', $item['accession_no']);
+                        });
 
-                    if ($campuses !== null) {
-                        $bookQuery->whereIn('campus', $campuses);
+                        if ($campusFilter !== null) {
+                            $bookQuery->whereIn('campus', $campusFilter);
+                        }
+
+                        $book = $bookQuery->first();
                     }
-
-                    $book = $bookQuery->first();
 
                     if (!$book) {
                         throw new \Exception("Book with barcode/accession '" . $item['accession_no'] . "' not found.");
@@ -382,13 +611,16 @@ class LibraryController extends Controller
 
                     $book->update(['status' => 'Borrowed']);
 
+                    $accNo = $book->accession_no ?? $book->accession_number;
+
                     $transaction = new Transaction();
                     $transaction->borrower_id   = $request->borrower_id;
                     $transaction->borrower_type = get_class($borrower);
                     $transaction->borrow_type   = $request->borrow_type;
                     $transaction->book_section  = $item['book_section'];
-                    $transaction->book_id       = $book->id;
-                    $transaction->accession_no  = $book->accession_no;
+                    $transaction->book_id       = $book->id ?? null;
+                    $transaction->book_type     = $modelClass;
+                    $transaction->accession_no  = $accNo;
                     $transaction->date_borrowed = Carbon::now();
                     $transaction->due_date      = $due_date;
                     $transaction->status        = 'Borrowed';
@@ -399,9 +631,9 @@ class LibraryController extends Controller
                         'title'       => $book->title,
                         'author'      => $book->author,
                         'call_number' => $book->call_number,
-                        'location'    => $book->location,
-                        'shelf_number' => $book->shelf_number,
-                        'accession_no' => $book->accession_no,
+                        'location'    => $book->location ?? '',
+                        'shelf_number' => $book->shelf_number ?? '',
+                        'accession_no' => $accNo,
                         'barcode'     => $book->barcode,
                         'book_section' => $item['book_section'],
                         'due_date'    => $due_date,
@@ -450,23 +682,39 @@ class LibraryController extends Controller
             'accession_no' => 'required|string'
         ]);
 
-        $campuses = $this->getBookCampusFilter();
-        $bookQuery = Book::where(function ($q) use ($request) {
-            $q->where('accession_no', $request->accession_no)
-              ->orWhere('barcode', $request->accession_no);
-        });
+        $modelClass = $this->getBookModel();
 
-        if ($campuses !== null) {
-            $bookQuery->whereIn('campus', $campuses);
+        if ($modelClass === BookElem::class) {
+            $book = BookElem::where(function ($q) use ($request) {
+                $q->where('accession_number', $request->accession_no)
+                    ->orWhere('barcode', $request->accession_no);
+            })->first();
+        } elseif ($modelClass === BookHighschool::class) {
+            $book = BookHighschool::where(function ($q) use ($request) {
+                $q->where('accession_no', $request->accession_no)
+                    ->orWhere('barcode', $request->accession_no);
+            })->first();
+        } else {
+            $campusFilter = $this->getRoleCampusFilter();
+            $bookQuery = Book::where(function ($q) use ($request) {
+                $q->where('accession_no', $request->accession_no)
+                    ->orWhere('barcode', $request->accession_no);
+            });
+
+            if ($campusFilter !== null) {
+                $bookQuery->whereIn('campus', $campusFilter);
+            }
+
+            $book = $bookQuery->first();
         }
-
-        $book = $bookQuery->first();
 
         if (!$book) {
             return response()->json(['success' => false, 'message' => 'Book not found.'], 404);
         }
 
-        $transaction = Transaction::where('accession_no', $book->accession_no)
+        $accNo = $book->accession_no ?? $book->accession_number;
+
+        $transaction = Transaction::where('accession_no', $accNo)
             ->where('status', 'Borrowed')
             ->first();
 
@@ -512,12 +760,20 @@ class LibraryController extends Controller
     // ----- HISTORY -----
     public function historyIndex()
     {
-        $campuses = $this->getBookCampusFilter();
+        $modelClass = $this->getBookModel();
+        $campusFilter = $this->getRoleCampusFilter();
         $query = Transaction::with(['book', 'borrower'])->orderBy('created_at', 'desc');
 
-        if ($campuses !== null) {
-            $query->whereHas('book', function ($q) use ($campuses) {
-                $q->whereIn('campus', $campuses);
+        // For users on separate book tables (BooksHighschool, BookElem), 
+        // filter by book_type so they only see their own transactions
+        if ($modelClass === BookHighschool::class) {
+            $query->where('book_type', BookHighschool::class);
+        } elseif ($modelClass === BookElem::class) {
+            $query->where('book_type', BookElem::class);
+        } elseif ($campusFilter !== null) {
+            // For users on books_main, apply campus filter
+            $query->whereHas('book', function ($q) use ($campusFilter) {
+                $q->whereIn('campus', $campusFilter);
             });
         }
 
@@ -528,8 +784,9 @@ class LibraryController extends Controller
     // ----- CHARGES / OVERDUE FINES -----
     public function chargesIndex(Request $request)
     {
-        $campuses = $this->getBookCampusFilter();
-        
+        $modelClass = $this->getBookModel();
+        $campusFilter = $this->getRoleCampusFilter();
+
         $query = Transaction::with(['book', 'borrower'])
             ->where(function ($q) {
                 $q->where('fine', '>', 0)
@@ -539,20 +796,49 @@ class LibraryController extends Controller
                   });
             });
 
-        if ($campuses !== null) {
-            $query->whereHas('book', function ($q) use ($campuses) {
-                $q->whereIn('campus', $campuses);
+        // For users on separate book tables, filter by book_type
+        if ($modelClass === BookHighschool::class) {
+            $query->where('book_type', BookHighschool::class);
+        } elseif ($modelClass === BookElem::class) {
+            $query->where('book_type', BookElem::class);
+        } elseif ($campusFilter !== null) {
+            $query->whereHas('book', function ($q) use ($campusFilter) {
+                $q->whereIn('campus', $campusFilter);
             });
         }
 
         // Search Filter
         if ($request->filled('search')) {
             $search = $request->search;
-            $query->where(function ($q) use ($search) {
+            $searchTerm = strtolower($search);
+            $query->where(function ($q) use ($search, $searchTerm) {
                 $q->where('borrower_id', 'like', "%{$search}%")
-                  ->orWhereHas('book', function ($bq) use ($search) {
-                      $bq->where('title', 'like', "%{$search}%")
-                        ->orWhere('accession_no', 'like', "%{$search}%");
+                  ->orWhere(function ($borrowerQuery) use ($searchTerm) {
+                      $borrowerQuery->whereRaw('LOWER(COALESCE(borrower_id, "")) LIKE ?', ['%' . $searchTerm . '%']);
+
+                      $studentIds = Student::query()
+                          ->whereRaw('LOWER(COALESCE(firstname, "")) LIKE ?', ['%' . $searchTerm . '%'])
+                          ->orWhereRaw('LOWER(COALESCE(lastname, "")) LIKE ?', ['%' . $searchTerm . '%'])
+                          ->orWhereRaw('LOWER(COALESCE(middlename, "")) LIKE ?', ['%' . $searchTerm . '%'])
+                          ->orWhereRaw('LOWER(COALESCE(department, "")) LIKE ?', ['%' . $searchTerm . '%'])
+                          ->pluck('sid');
+
+                      $employeeIds = Employee::query()
+                          ->whereRaw('LOWER(COALESCE(firstname, "")) LIKE ?', ['%' . $searchTerm . '%'])
+                          ->orWhereRaw('LOWER(COALESCE(lastname, "")) LIKE ?', ['%' . $searchTerm . '%'])
+                          ->orWhereRaw('LOWER(COALESCE(middlename, "")) LIKE ?', ['%' . $searchTerm . '%'])
+                          ->orWhereRaw('LOWER(COALESCE(department, "")) LIKE ?', ['%' . $searchTerm . '%'])
+                          ->pluck('id');
+
+                      if ($studentIds->isNotEmpty() || $employeeIds->isNotEmpty()) {
+                          $borrowerQuery->orWhereIn('borrower_id', $studentIds->merge($employeeIds)->all());
+                      }
+                  })
+                  ->orWhereHas('book', function ($bookQuery) use ($searchTerm) {
+                      $bookQuery->whereRaw('LOWER(COALESCE(title, "")) LIKE ?', ['%' . $searchTerm . '%'])
+                          ->orWhereRaw('LOWER(COALESCE(author, "")) LIKE ?', ['%' . $searchTerm . '%'])
+                          ->orWhereRaw('LOWER(COALESCE(call_number, "")) LIKE ?', ['%' . $searchTerm . '%'])
+                          ->orWhereRaw('LOWER(COALESCE(location, "")) LIKE ?', ['%' . $searchTerm . '%']);
                   });
             });
         }
@@ -574,18 +860,26 @@ class LibraryController extends Controller
         // Total active overdue books count
         $totalActiveOverdueQuery = Transaction::where('status', 'Borrowed')
             ->where('due_date', '<', Carbon::now());
-        if ($campuses !== null) {
-            $totalActiveOverdueQuery->whereHas('book', function ($q) use ($campuses) {
-                $q->whereIn('campus', $campuses);
+        if ($modelClass === BookHighschool::class) {
+            $totalActiveOverdueQuery->where('book_type', BookHighschool::class);
+        } elseif ($modelClass === BookElem::class) {
+            $totalActiveOverdueQuery->where('book_type', BookElem::class);
+        } elseif ($campusFilter !== null) {
+            $totalActiveOverdueQuery->whereHas('book', function ($q) use ($campusFilter) {
+                $q->whereIn('campus', $campusFilter);
             });
         }
         $totalActiveOverdueCount = $totalActiveOverdueQuery->count();
 
         // Total collected/recorded fines
         $totalFinesQuery = Transaction::where('fine', '>', 0);
-        if ($campuses !== null) {
-            $totalFinesQuery->whereHas('book', function ($q) use ($campuses) {
-                $q->whereIn('campus', $campuses);
+        if ($modelClass === BookHighschool::class) {
+            $totalFinesQuery->where('book_type', BookHighschool::class);
+        } elseif ($modelClass === BookElem::class) {
+            $totalFinesQuery->where('book_type', BookElem::class);
+        } elseif ($campusFilter !== null) {
+            $totalFinesQuery->whereHas('book', function ($q) use ($campusFilter) {
+                $q->whereIn('campus', $campusFilter);
             });
         }
         $totalFinesSum = $totalFinesQuery->sum('fine');
@@ -608,7 +902,7 @@ class LibraryController extends Controller
                 $txn->calculated_fine = $txn->fine;
                 $txn->is_active_overdue = false;
             }
-            
+
             if ($txn->borrower_type === 'App\Models\Student') {
                 $txn->borrower_details = Student::where('sid', $txn->borrower_id)
                     ->orWhere('rfid', $txn->borrower_id)
@@ -619,7 +913,7 @@ class LibraryController extends Controller
                     ->orWhere('eid', $txn->borrower_id)
                     ->first();
             }
-            
+
             return $txn;
         });
 
@@ -630,7 +924,7 @@ class LibraryController extends Controller
     // ----- REPORTS -----
     public function reportsIndex()
     {
-        $campuses = $this->getBookCampusFilter();
+        $campusFilter = $this->getRoleCampusFilter();
 
         // Monthly report
         $monthlyQuery = Transaction::selectRaw('MONTHNAME(date_borrowed) as month,
@@ -659,18 +953,24 @@ class LibraryController extends Controller
             ->orderByDesc('total_borrowed')
             ->limit(10);
 
-        if ($campuses !== null) {
-            $monthlyQuery->whereHas('book', function ($q) use ($campuses) {
-                $q->whereIn('campus', $campuses);
+        $modelClass = $this->getBookModel();
+        if ($modelClass === BookHighschool::class || $modelClass === BookElem::class) {
+            $monthlyQuery->where('book_type', $modelClass);
+            $topBooksQuery->where('book_type', $modelClass);
+            $topStudentsQuery->where('book_type', $modelClass);
+            $topEmployeesQuery->where('book_type', $modelClass);
+        } elseif ($campusFilter !== null) {
+            $monthlyQuery->whereHas('book', function ($q) use ($campusFilter) {
+                $q->whereIn('campus', $campusFilter);
             });
-            $topBooksQuery->whereHas('book', function ($q) use ($campuses) {
-                $q->whereIn('campus', $campuses);
+            $topBooksQuery->whereHas('book', function ($q) use ($campusFilter) {
+                $q->whereIn('campus', $campusFilter);
             });
-            $topStudentsQuery->whereHas('book', function ($q) use ($campuses) {
-                $q->whereIn('campus', $campuses);
+            $topStudentsQuery->whereHas('book', function ($q) use ($campusFilter) {
+                $q->whereIn('campus', $campusFilter);
             });
-            $topEmployeesQuery->whereHas('book', function ($q) use ($campuses) {
-                $q->whereIn('campus', $campuses);
+            $topEmployeesQuery->whereHas('book', function ($q) use ($campusFilter) {
+                $q->whereIn('campus', $campusFilter);
             });
         }
 
@@ -710,7 +1010,8 @@ class LibraryController extends Controller
     public function reportsExport()
     {
         $filename = 'library_report_' . now()->format('Y-m-d') . '.xls';
-        $campuses = $this->getBookCampusFilter();
+        $modelClass   = $this->getBookModel();
+        $campusFilter = $this->getRoleCampusFilter();
 
         // ── Fetch all data ──────────────────────────────────────────────
         $monthlyQuery = Transaction::selectRaw('MONTHNAME(date_borrowed) as month,
@@ -729,18 +1030,23 @@ class LibraryController extends Controller
             ->where('borrower_type', 'like', '%Employee%')
             ->groupBy('borrower_id')->orderByDesc('total_borrowed')->limit(10);
 
-        if ($campuses !== null) {
-            $monthlyQuery->whereHas('book', function ($q) use ($campuses) {
-                $q->whereIn('campus', $campuses);
+        if ($modelClass === BookHighschool::class || $modelClass === BookElem::class) {
+            $monthlyQuery->where('book_type', $modelClass);
+            $booksQuery->where('book_type', $modelClass);
+            $studentTxnsQuery->where('book_type', $modelClass);
+            $employeeTxnsQuery->where('book_type', $modelClass);
+        } elseif ($campusFilter !== null) {
+            $monthlyQuery->whereHas('book', function ($q) use ($campusFilter) {
+                $q->whereIn('campus', $campusFilter);
             });
-            $booksQuery->whereHas('book', function ($q) use ($campuses) {
-                $q->whereIn('campus', $campuses);
+            $booksQuery->whereHas('book', function ($q) use ($campusFilter) {
+                $q->whereIn('campus', $campusFilter);
             });
-            $studentTxnsQuery->whereHas('book', function ($q) use ($campuses) {
-                $q->whereIn('campus', $campuses);
+            $studentTxnsQuery->whereHas('book', function ($q) use ($campusFilter) {
+                $q->whereIn('campus', $campusFilter);
             });
-            $employeeTxnsQuery->whereHas('book', function ($q) use ($campuses) {
-                $q->whereIn('campus', $campuses);
+            $employeeTxnsQuery->whereHas('book', function ($q) use ($campusFilter) {
+                $q->whereIn('campus', $campusFilter);
             });
         }
 
@@ -874,17 +1180,21 @@ class LibraryController extends Controller
     // ----- SHELVES CRUD -----
     public function shelvesIndex()
     {
-        $campuses = $this->getBookCampusFilter();
+        $location = session('location');
         $query = Shelf::orderBy('shelf_number');
 
-        if ($campuses !== null) {
+        if ($location !== null && $location !== 'Master') {
+            $campuses = match ($location) {
+                'DCC BED' => ['DCC BED Highschool', 'DCC BED SeniorHighSchool', 'DCC BED Elementary'],
+                default   => [$location],
+            };
             $query->whereIn('campus', $campuses);
         }
 
         $shelves = $query->get();
 
         // Route to the view matching the logged-in admin's campus scope.
-        $view = match (session('location')) {
+        $view = match ($location) {
             'Master'   => 'admin.library.shelves_combined',
             'DCC TED'  => 'admin.library.shelves_ted',
             default    => 'admin.library.shelves_bed', // DCC BED + the 3 BED sub-campuses
@@ -947,25 +1257,5 @@ class LibraryController extends Controller
     {
         Shelf::findOrFail($id)->delete();
         return response()->json(['success' => true, 'message' => 'Shelf deleted successfully']);
-    }
-
-    /**
-     * Get allowed campuses for books/shelves based on session location.
-     * Returns null if no filtering should be applied (Master).
-     *
-     * @return array|null
-     */
-    private function getBookCampusFilter(): ?array
-    {
-        $location = session('location');
-        return match ($location) {
-            // DCC TED has full (Master-level) access – no campus restriction
-            'DCC TED', 'Master' => null,
-            'DCC BED Highschool' => ['DCC BED Highschool'],
-            'DCC BED SeniorHighSchool' => ['DCC BED SeniorHighSchool'],
-            'DCC BED Elementary' => ['DCC BED Elementary'],
-            'DCC BED' => ['DCC BED Highschool', 'DCC BED SeniorHighSchool', 'DCC BED Elementary'],
-            default => [], // fallback empty array
-        };
     }
 }

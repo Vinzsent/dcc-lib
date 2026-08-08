@@ -50,7 +50,7 @@
     </table>
 
     <div class="footer">
-        DCC Library System - Design With ❤️ By MIS Team
+        Library Management System - Design With ❤️ By MIS Team
     </div>
 </body>
 </html>

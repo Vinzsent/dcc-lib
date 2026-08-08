@@ -7,12 +7,13 @@
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
     <div class="card">
         <h3 class="text-gray-700 font-bold mb-4">Generate Report</h3>
-        <form action="{{ route('admin.student-logs.export') }}" method="GET">
+        <form id="reportForm" action="{{ route('admin.student-logs.export') }}" method="GET">
             <div class="mb-4">
                 <label class="block text-gray-600 text-sm font-semibold mb-2">Report Type</label>
                 <select name="type" class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-green-600">
                     <option value="attendance">Student Logs</option>
                     <option value="students">Students Data</option>
+                    <option value="employees">Employee Logs</option>
                 </select>
             </div>
             <div id="date_range_container" class="mb-4">
@@ -57,12 +58,22 @@
             </div>
             
             <!-- View Summary Button -->
-            <div class="mb-4">
+            <div class="mb-4" id="view_summary_btn">
                 <button type="button" onclick="viewSummary()" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition flex items-center justify-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                     </svg>
                     View Course Summary
+                </button>
+            </div>
+
+            <!-- View Employee Summary Button -->
+            <div class="mb-4 hidden" id="view_employee_summary_btn">
+                <button type="button" onclick="viewEmployeeSummary()" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition flex items-center justify-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    View Employee Summary
                 </button>
             </div>
             
@@ -136,10 +147,77 @@
                         </tfoot>
                     </table>
                 </div>
+
+                @if($courseSummaryDetails && count($courseSummaryDetails) > 0)
+                <div class="mt-6">
+                    <h4 class="text-md font-bold text-gray-700 mb-3 flex items-center gap-2">
+                        <svg class="h-5 w-5 text-emerald-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Detailed Logs with Time In / Time Out
+                    </h4>
+                    <div class="space-y-4">
+                        @foreach($courseSummaryDetails as $courseName => $logs)
+                        <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                            <div class="bg-gray-50 px-4 py-2 flex items-center justify-between border-b border-gray-200">
+                                <span class="font-semibold text-gray-800 text-sm">{{ $courseName }}</span>
+                                <span class="text-xs text-gray-500">{{ count($logs) }} log(s)</span>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr class="bg-gray-100 text-gray-600 text-xs uppercase">
+                                            <th class="py-2 px-4">Student</th>
+                                            <th class="py-2 px-4">Student ID</th>
+                                            <th class="py-2 px-4">Date</th>
+                                            <th class="py-2 px-4 text-center">Time In</th>
+                                            <th class="py-2 px-4 text-center">Time Out</th>
+                                            <th class="py-2 px-4 text-center">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="text-sm">
+                                        @foreach($logs as $log)
+                                        <tr class="border-b border-gray-100 hover:bg-gray-50 transition">
+                                            <td class="py-2 px-4 font-medium text-gray-800">
+                                                {{ $log->firstname }} {{ $log->middlename ? $log->middlename . ' ' : '' }}{{ $log->lastname }}
+                                            </td>
+                                            <td class="py-2 px-4 text-gray-600">{{ $log->sid }}</td>
+                                            <td class="py-2 px-4 text-gray-600">{{ \Carbon\Carbon::parse($log->time_in)->format('M d, Y') }}</td>
+                                            <td class="py-2 px-4 text-center">
+                                                <span class="bg-green-50 text-green-700 px-2 py-0.5 rounded text-xs font-semibold">
+                                                    {{ \Carbon\Carbon::parse($log->time_in)->format('h:i A') }}
+                                                </span>
+                                            </td>
+                                            <td class="py-2 px-4 text-center">
+                                                @if($log->time_out)
+                                                    <span class="bg-red-50 text-red-700 px-2 py-0.5 rounded text-xs font-semibold">
+                                                        {{ \Carbon\Carbon::parse($log->time_out)->format('h:i A') }}
+                                                    </span>
+                                                @else
+                                                    <span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-semibold">Active</span>
+                                                @endif
+                                            </td>
+                                            <td class="py-2 px-4 text-center">
+                                                @if(!$log->time_out)
+                                                    <span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">Inside</span>
+                                                @else
+                                                    <span class="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">Exited</span>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        @endforeach
+                    </div>
+                </div>
+                @endif
                 
                 <div class="mt-4 p-3 bg-blue-50 border-l-4 border-blue-500 rounded">
                     <p class="text-sm text-blue-800">
-                        <strong>Note:</strong> This summary shows library entry logs grouped by course for the selected date range.
+                        <strong>Note:</strong> This summary shows library entry logs grouped by course for the selected date range, including time in/out details for each student.
                     </p>
                 </div>
             </div>
@@ -200,7 +278,8 @@
         const typeSelect = document.querySelector('select[name="type"]');
         const dateRangeContainer = document.getElementById('date_range_container');
         const studentFiltersContainer = document.getElementById('student_filters_container');
-        const viewSummaryBtn = document.querySelector('button[onclick="viewSummary()"]').closest('.mb-4');
+        const viewSummaryBtn = document.getElementById('view_summary_btn');
+        const viewEmployeeSummaryBtn = document.getElementById('view_employee_summary_btn');
 
         window.resetPreview = function() {
             const previewContainer = document.getElementById('preview_container');
@@ -219,14 +298,26 @@
 
         function toggleFilters() {
             window.resetPreview();
+            const form = document.getElementById('reportForm');
+
             if (typeSelect.value === 'students') {
                 dateRangeContainer.classList.add('hidden');
                 studentFiltersContainer.classList.remove('hidden');
                 viewSummaryBtn.classList.add('hidden');
+                viewEmployeeSummaryBtn.classList.add('hidden');
+                form.action = "{{ route('admin.student-logs.export') }}";
+            } else if (typeSelect.value === 'employees') {
+                dateRangeContainer.classList.remove('hidden');
+                studentFiltersContainer.classList.add('hidden');
+                viewSummaryBtn.classList.add('hidden');
+                viewEmployeeSummaryBtn.classList.remove('hidden');
+                form.action = "{{ route('admin.employee-logs.export') }}";
             } else {
                 dateRangeContainer.classList.remove('hidden');
                 studentFiltersContainer.classList.add('hidden');
                 viewSummaryBtn.classList.remove('hidden');
+                viewEmployeeSummaryBtn.classList.add('hidden');
+                form.action = "{{ route('admin.student-logs.export') }}";
             }
         }
 
@@ -280,6 +371,213 @@
         loadCourseSummaryPreview(startDate, endDate);
     }
 
+    // View Employee Summary button handler
+    function viewEmployeeSummary() {
+        const startDate = document.getElementById('start_date').value;
+        const endDate = document.getElementById('end_date').value;
+
+        if (!startDate || !endDate) {
+            alert('Please select both start and end dates to view the employee summary.');
+            return;
+        }
+
+        loadEmployeeSummaryPreview(startDate, endDate);
+    }
+
+    function loadEmployeeSummaryPreview(startDate, endDate, page = 1) {
+        const previewContainer = document.getElementById('preview_container');
+
+        previewContainer.innerHTML = `
+            <div class="flex items-center justify-center h-full p-12">
+                <div class="text-center">
+                    <div class="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-emerald-800 mb-4"></div>
+                    <p class="text-gray-500 font-semibold">Loading employee summary...</p>
+                </div>
+            </div>
+        `;
+
+        fetch(`{{ route('admin.reports.employee-preview') }}?start_date=${startDate}&end_date=${endDate}&page=${page}`, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Network response was not ok');
+            return response.json();
+        })
+        .then(data => {
+            // Handle paginated response
+            const logs = data.data || data;
+            const pagination = data.data ? data : null;
+
+            if (!logs || logs.length === 0) {
+                previewContainer.innerHTML = `
+                    <div class="flex items-center justify-center h-full p-12">
+                        <div class="text-center text-gray-400">
+                            <svg class="mx-auto h-12 w-12 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <p class="mt-4 font-semibold text-gray-500">No employee logs found for selected date range.</p>
+                            <p class="mt-1 text-sm text-gray-400">${formatDateDisplay(startDate)} – ${formatDateDisplay(endDate)}</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            const rows = logs.map((log, index) => {
+                const rowNumber = (pagination?.from || 1) + index;
+                return `
+                <tr class="border-b border-gray-200 hover:bg-gray-100 transition ${rowNumber % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">
+                    <td class="py-3 px-4 font-semibold text-gray-600">${rowNumber}</td>
+                    <td class="py-3 px-4">
+                        <div class="flex flex-col">
+                            <span class="font-semibold text-gray-800">${log.firstname} ${log.middlename ? log.middlename + ' ' : ''}${log.lastname}</span>
+                            <span class="text-xs text-gray-400">ID: ${log.eid} | RFID: ${log.rfid || 'N/A'}</span>
+                        </div>
+                    </td>
+                    <td class="py-3 px-4 text-gray-700">${log.campus || 'N/A'}</td>
+                    <td class="py-3 px-4 text-gray-700">${log.department || 'N/A'}</td>
+                    <td class="py-3 px-4">
+                        <span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-semibold">${log.position || 'N/A'}</span>
+                    </td>
+                    <td class="py-3 px-4 text-gray-700">${log.employment_type || 'N/A'}</td>
+                    <td class="py-3 px-4 text-gray-600">${formatDateTime(log.time_in, 'date')}</td>
+                    <td class="py-3 px-4 text-center">
+                        <span class="bg-green-50 text-green-700 px-2 py-0.5 rounded text-xs font-semibold">${formatDateTime(log.time_in, 'time')}</span>
+                    </td>
+                    <td class="py-3 px-4 text-center">
+                        ${log.time_out 
+                            ? `<span class="bg-red-50 text-red-700 px-2 py-0.5 rounded text-xs font-semibold">${formatDateTime(log.time_out, 'time')}</span>`
+                            : `<span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-semibold">Active</span>`}
+                    </td>
+                    <td class="py-3 px-4 text-center">
+                        ${!log.time_out 
+                            ? `<span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">Inside</span>`
+                            : `<span class="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">Exited</span>`}
+                    </td>
+                </tr>
+            `}).join('');
+
+            // Build pagination HTML
+            let paginationHtml = '';
+            if (pagination && pagination.last_page > 1) {
+                const prevDisabled = pagination.current_page === 1 ? 'disabled' : '';
+                const nextDisabled = pagination.current_page === pagination.last_page ? 'disabled' : '';
+                
+                let pageButtons = '';
+                const maxVisible = 5;
+                let startPage = Math.max(1, pagination.current_page - 2);
+                let endPage = Math.min(pagination.last_page, startPage + maxVisible - 1);
+                
+                if (endPage - startPage + 1 < maxVisible) {
+                    startPage = Math.max(1, endPage - maxVisible + 1);
+                }
+                
+                for (let p = startPage; p <= endPage; p++) {
+                    const activeClass = p === pagination.current_page 
+                        ? 'bg-emerald-700 text-white font-semibold focus:z-20' 
+                        : 'text-gray-900 bg-white hover:bg-gray-50 focus:z-20';
+                    pageButtons += `
+                        <button type="button" onclick="loadEmployeeSummaryPreview('${startDate}', '${endDate}', ${p})" 
+                           class="relative inline-flex items-center px-4 py-2 text-sm font-semibold ring-1 ring-inset ring-gray-300 focus:outline-offset-0 ${activeClass}">
+                           ${p}
+                        </button>
+                    `;
+                }
+
+                paginationHtml = `
+                    <div class="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 mt-4 flex-shrink-0 rounded-lg shadow-sm">
+                        <div class="flex flex-1 justify-between items-center sm:hidden w-full">
+                            <button type="button" onclick="loadEmployeeSummaryPreview('${startDate}', '${endDate}', ${pagination.current_page - 1})" ${prevDisabled}
+                                class="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition duration-200 select-none">
+                                Previous
+                            </button>
+                            <span class="text-sm text-gray-700 font-medium">Page ${pagination.current_page} of ${pagination.last_page}</span>
+                            <button type="button" onclick="loadEmployeeSummaryPreview('${startDate}', '${endDate}', ${pagination.current_page + 1})" ${nextDisabled}
+                                class="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition duration-200 select-none">
+                                Next
+                            </button>
+                        </div>
+                        
+                        <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                            <div>
+                                <p class="text-sm text-gray-700">
+                                    Showing <span class="font-semibold text-emerald-800">${pagination.from ?? 0}</span> to <span class="font-semibold text-emerald-800">${pagination.to ?? 0}</span> of <span class="font-semibold text-emerald-800">${pagination.total}</span> records
+                                </p>
+                            </div>
+                            <div>
+                                <nav class="isolate inline-flex -space-x-px rounded-md shadow-xs" aria-label="Pagination">
+                                    <button type="button" onclick="loadEmployeeSummaryPreview('${startDate}', '${endDate}', ${pagination.current_page - 1})" ${prevDisabled}
+                                        class="relative inline-flex items-center rounded-l-md px-3 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed transition duration-200 select-none">
+                                        <span class="sr-only">Previous</span>
+                                        <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                            <path fill-rule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clip-rule="evenodd" />
+                                        </svg>
+                                    </button>
+                                    ${pageButtons}
+                                    <button type="button" onclick="loadEmployeeSummaryPreview('${startDate}', '${endDate}', ${pagination.current_page + 1})" ${nextDisabled}
+                                        class="relative inline-flex items-center rounded-r-md px-3 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed transition duration-200 select-none">
+                                        <span class="sr-only">Next</span>
+                                        <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                            <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clip-rule="evenodd" />
+                                        </svg>
+                                    </button>
+                                </nav>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            previewContainer.innerHTML = `
+                <div class="p-6 h-full flex flex-col">
+                    <div class="flex items-center justify-between mb-4 flex-shrink-0">
+                        <h3 class="text-lg font-bold text-gray-800">Employee Logs Summary (${pagination?.total || logs.length} records)</h3>
+                        <span class="text-sm text-gray-500">${formatDateDisplay(startDate)} – ${formatDateDisplay(endDate)}</span>
+                    </div>
+                    <div class="overflow-y-auto flex-grow shadow border-b border-gray-200 sm:rounded-lg custom-scrollbar">
+                        <table class="w-full text-left border-collapse">
+                            <thead class="bg-emerald-700 text-white text-sm sticky top-0 z-10">
+                                <tr>
+                                    <th class="py-3 px-4 rounded-tl-lg">#</th>
+                                    <th class="py-3 px-4">Employee</th>
+                                    <th class="py-3 px-4">Campus</th>
+                                    <th class="py-3 px-4">Department</th>
+                                    <th class="py-3 px-4">Position</th>
+                                    <th class="py-3 px-4">Type</th>
+                                    <th class="py-3 px-4">Date</th>
+                                    <th class="py-3 px-4 text-center">Time In</th>
+                                    <th class="py-3 px-4 text-center">Time Out</th>
+                                    <th class="py-3 px-4 text-center rounded-tr-lg">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-sm">${rows}</tbody>
+                        </table>
+                    </div>
+                    ${paginationHtml}
+                    <div class="mt-4 p-3 bg-blue-50 border-l-4 border-blue-500 rounded flex-shrink-0">
+                        <p class="text-sm text-blue-800">
+                            <strong>Note:</strong> This preview shows all employee library logs for the selected date range. You can now export this data using the Generate Report button.
+                        </p>
+                    </div>
+                </div>
+            `;
+        })
+        .catch(error => {
+            console.error('Error fetching employee summary preview:', error);
+            previewContainer.innerHTML = `
+                <div class="flex items-center justify-center h-full p-12">
+                    <div class="text-center text-red-500">
+                        <svg class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <p class="mt-4 font-bold">Failed to load employee preview.</p>
+                        <button onclick="viewEmployeeSummary()" class="mt-4 text-emerald-800 font-bold hover:underline">Retry</button>
+                    </div>
+                </div>
+            `;
+        });
+    }
+
     function loadCourseSummaryPreview(startDate, endDate) {
         const previewContainer = document.getElementById('preview_container');
 
@@ -300,7 +598,11 @@
             return response.json();
         })
         .then(data => {
-            if (!data || data.length === 0) {
+            // Handle new response format: { summary: [...], details: {...} }
+            const summaryData = data.summary || data;
+            const detailsData = data.details || {};
+
+            if (!summaryData || summaryData.length === 0) {
                 previewContainer.innerHTML = `
                     <div class="flex items-center justify-center h-full p-12">
                         <div class="text-center text-gray-400">
@@ -315,10 +617,10 @@
                 return;
             }
 
-            const totalLogs = data.reduce((sum, r) => sum + Number(r.total_logs), 0);
-            const totalStudents = data.reduce((sum, r) => sum + Number(r.unique_students), 0);
+            const totalLogs = summaryData.reduce((sum, r) => sum + Number(r.total_logs), 0);
+            const totalStudents = summaryData.reduce((sum, r) => sum + Number(r.unique_students), 0);
 
-            const rows = data.map((course, index) => `
+            const rows = summaryData.map((course, index) => `
                 <tr class="border-b border-gray-200 hover:bg-gray-100 transition ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">
                     <td class="py-3 px-4 font-semibold text-gray-600">${index + 1}</td>
                     <td class="py-3 px-4 font-medium text-gray-800">${course.course}</td>
@@ -330,6 +632,67 @@
                     </td>
                 </tr>
             `).join('');
+
+            // Build detailed logs section grouped by course
+            let detailsHtml = '';
+            if (Object.keys(detailsData).length > 0) {
+                detailsHtml = `
+                    <div class="mt-6 flex-shrink-0">
+                        <h4 class="text-md font-bold text-gray-700 mb-3 flex items-center gap-2">
+                            <svg class="h-5 w-5 text-emerald-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Detailed Logs with Time In / Time Out
+                        </h4>
+                        <div class="space-y-4">
+                            ${Object.entries(detailsData).map(([courseName, logs]) => `
+                                <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                                    <div class="bg-gray-50 px-4 py-2 flex items-center justify-between border-b border-gray-200">
+                                        <span class="font-semibold text-gray-800 text-sm">${courseName}</span>
+                                        <span class="text-xs text-gray-500">${logs.length} log(s)</span>
+                                    </div>
+                                    <div class="overflow-x-auto">
+                                        <table class="w-full text-left border-collapse">
+                                            <thead>
+                                                <tr class="bg-gray-100 text-gray-600 text-xs uppercase">
+                                                    <th class="py-2 px-4">Student</th>
+                                                    <th class="py-2 px-4">Student ID</th>
+                                                    <th class="py-2 px-4">Date</th>
+                                                    <th class="py-2 px-4 text-center">Time In</th>
+                                                    <th class="py-2 px-4 text-center">Time Out</th>
+                                                    <th class="py-2 px-4 text-center">Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="text-sm">
+                                                ${logs.map(log => `
+                                                    <tr class="border-b border-gray-100 hover:bg-gray-50 transition">
+                                                        <td class="py-2 px-4 font-medium text-gray-800">${log.firstname} ${log.middlename ? log.middlename + ' ' : ''}${log.lastname}</td>
+                                                        <td class="py-2 px-4 text-gray-600">${log.sid}</td>
+                                                        <td class="py-2 px-4 text-gray-600">${formatDateTime(log.time_in, 'date')}</td>
+                                                        <td class="py-2 px-4 text-center">
+                                                            <span class="bg-green-50 text-green-700 px-2 py-0.5 rounded text-xs font-semibold">${formatDateTime(log.time_in, 'time')}</span>
+                                                        </td>
+                                                        <td class="py-2 px-4 text-center">
+                                                            ${log.time_out 
+                                                                ? `<span class="bg-red-50 text-red-700 px-2 py-0.5 rounded text-xs font-semibold">${formatDateTime(log.time_out, 'time')}</span>`
+                                                                : `<span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-semibold">Active</span>`}
+                                                        </td>
+                                                        <td class="py-2 px-4 text-center">
+                                                            ${!log.time_out 
+                                                                ? `<span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">Inside</span>`
+                                                                : `<span class="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">Exited</span>`}
+                                                        </td>
+                                                    </tr>
+                                                `).join('')}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
 
             previewContainer.innerHTML = `
                 <div class="p-6 h-full flex flex-col">
@@ -361,9 +724,10 @@
                             </tfoot>
                         </table>
                     </div>
+                    ${detailsHtml}
                     <div class="mt-4 p-3 bg-blue-50 border-l-4 border-blue-500 rounded flex-shrink-0">
                         <p class="text-sm text-blue-800">
-                            <strong>Note:</strong> This summary shows library entry logs grouped by course for the selected date range.
+                            <strong>Note:</strong> This summary shows library entry logs grouped by course for the selected date range, including time in/out details for each student.
                         </p>
                     </div>
                 </div>
@@ -388,6 +752,15 @@
     function formatDateDisplay(dateStr) {
         const d = new Date(dateStr + 'T00:00:00');
         return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    function formatDateTime(dateTimeStr, type) {
+        if (!dateTimeStr) return '-';
+        const d = new Date(dateTimeStr);
+        if (type === 'date') {
+            return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+        return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
     }
 
     // Render Pagination Controls

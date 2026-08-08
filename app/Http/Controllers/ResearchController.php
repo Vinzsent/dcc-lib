@@ -9,23 +9,37 @@ use Carbon\Carbon;
 
 class ResearchController extends Controller
 {
+    /**
+     * Map user role to view suffix/style.
+     */
+    private function getResearchViewType(): string
+    {
+        $role = auth()->user()?->role ?? '';
+
+        return match ($role) {
+            'Admin BEDELEM' => 'elem',
+            'Admin BEDHS'   => 'highschool',
+            default         => 'main', // Master, Admin, Admin TED, Admin BED, Admin BEDSHS
+        };
+    }
+
     // ----- RESEARCH CRUD -----
     public function index(Request $request)
     {
-        $location = session('location');
-        $isElem = $location && str_starts_with($location, 'DCC BED');
+        $viewType = $this->getResearchViewType();
 
-        if ($isElem) {
-            return $this->indexElem($request);
+        // For Elementary and High School, use simplified views
+        if (in_array($viewType, ['elem', 'highschool'])) {
+            return $this->indexSimple($request, $viewType);
         }
 
-        $campuses = $this->getCampusFilter();
+        $campusFilter = $this->getCampusFilter();
         $query = Research::query();
         $shelvesQuery = Shelf::orderBy('shelf_number');
 
-        if ($campuses !== null) {
-            $query->whereIn('campus', $campuses);
-            $shelvesQuery->whereIn('campus', $campuses);
+        if ($campusFilter !== null) {
+            $query->whereIn('campus', $campusFilter);
+            $shelvesQuery->whereIn('campus', $campusFilter);
         }
 
         // Global Search
@@ -89,9 +103,9 @@ class ResearchController extends Controller
     }
 
     /**
-     * Research index for DCC BED Elementary (uses research table directly).
+     * Simplified research index for Elementary and High School.
      */
-    private function indexElem(Request $request)
+    private function indexSimple(Request $request, string $viewType)
     {
         $query = Research::query();
 
@@ -132,7 +146,12 @@ class ResearchController extends Controller
 
         $research = $query->paginate(10);
         $shelves = collect();
-        return view('admin.library.research_elem', compact('research', 'shelves'));
+
+        $view = ($viewType === 'highschool')
+            ? 'admin.library.research_highschool'
+            : 'admin.library.research_elem';
+
+        return view($view, compact('research', 'shelves'));
     }
 
     public function store(Request $request)
@@ -232,34 +251,24 @@ class ResearchController extends Controller
 
     public function destroy($accession_no)
     {
-        $location = session('location');
-
-        if ($location && str_starts_with($location, 'DCC BED')) {
-            Research::findOrFail($accession_no)->delete();
-        } else {
-            Research::findOrFail($accession_no)->delete();
-        }
-
+        Research::findOrFail($accession_no)->delete();
         return response()->json(['success' => true, 'message' => 'Research deleted successfully']);
     }
 
     /**
      * Get allowed campuses for research based on session location.
      * Returns null if no filtering should be applied (Master).
-     *
-     * @return array|null
      */
     private function getCampusFilter(): ?array
     {
         $location = session('location');
         return match ($location) {
-            // DCC TED has full (Master-level) access – no campus restriction
             'DCC TED', 'Master' => null,
             'DCC BED Highschool' => ['DCC BED Highschool'],
             'DCC BED SeniorHighSchool' => ['DCC BED SeniorHighSchool'],
             'DCC BED Elementary' => ['DCC BED Elementary'],
             'DCC BED' => ['DCC BED Highschool', 'DCC BED SeniorHighSchool', 'DCC BED Elementary'],
-            default => [], // fallback empty array
+            default => [],
         };
     }
 }
