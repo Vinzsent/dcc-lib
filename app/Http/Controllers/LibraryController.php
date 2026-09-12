@@ -12,6 +12,7 @@ use App\Models\Employee;
 use App\Models\Shelf;
 use Carbon\Carbon;
 use App\Models\Research;
+use App\Models\BookType;
 
 class LibraryController extends Controller
 {
@@ -208,11 +209,79 @@ class LibraryController extends Controller
 
     public function booksElementaryIndex(Request $request)
     {
-        if (auth()->user()?->role !== 'Admin BEDELEM') {
-            abort(403, 'This page is only available to the BED Elementary admin account.');
+        if (!in_array(auth()->user()?->role ?? '', ['Admin BEDELEM', 'Master'])) {
+            abort(403, 'This page is only available to the BED Elementary admin and Master accounts.');
         }
 
         return $this->booksIndexElem($request);
+    }
+
+    /**
+     * Books index for DCC BED High School (uses books_highschool table).
+     */
+    public function booksHighschoolIndex(Request $request)
+    {
+        if (!in_array(auth()->user()?->role ?? '', ['Admin BEDHS', 'Master'])) {
+            abort(403, 'This page is only available to the BED High School admin and Master accounts.');
+        }
+
+        $query = BookHighschool::query();
+
+        // Global Search
+        if ($search = $request->input('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('accession_no', 'like', "%{$search}%")
+                  ->orWhere('barcode', 'like', "%{$search}%")
+                  ->orWhere('title', 'like', "%{$search}%")
+                  ->orWhere('author', 'like', "%{$search}%")
+                  ->orWhere('call_number', 'like', "%{$search}%")
+                  ->orWhere('location', 'like', "%{$search}%")
+                  ->orWhere('campus', 'like', "%{$search}%")
+                  ->orWhere('shelf_number', 'like', "%{$search}%")
+                  ->orWhere('status', 'like', "%{$search}%");
+            });
+        }
+
+        // Column-specific Filters
+        if ($request->filled('accession_no')) {
+            $query->where('accession_no', 'like', "%{$request->accession_no}%");
+        }
+        if ($request->filled('barcode')) {
+            $query->where('barcode', 'like', "%{$request->barcode}%");
+        }
+        if ($request->filled('title')) {
+            $query->where('title', 'like', "%{$request->title}%");
+        }
+        if ($request->filled('author')) {
+            $query->where('author', 'like', "%{$request->author}%");
+        }
+        if ($request->filled('call_number')) {
+            $query->where('call_number', 'like', "%{$request->call_number}%");
+        }
+        if ($request->filled('location')) {
+            $query->where('location', 'like', "%{$request->location}%");
+        }
+        if ($request->filled('shelf_number')) {
+            $query->where('shelf_number', 'like', "%{$request->shelf_number}%");
+        }
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        // Sorting
+        $sort = $request->input('sort', 'created_at');
+        $direction = $request->input('direction', 'desc');
+        $allowedSorts = ['id', 'accession_no', 'barcode', 'title', 'author', 'call_number', 'location', 'campus', 'shelf_number', 'status', 'created_at'];
+        if (in_array($sort, $allowedSorts)) {
+            $query->orderBy($sort, $direction);
+        } else {
+            $query->orderBy('created_at', 'desc');
+        }
+
+        $books = $query->paginate(10);
+        $shelves = Shelf::orderBy('shelf_number')->get();
+
+        return view('admin.library.books_highschool', compact('books', 'shelves'));
     }
 
     public function booksStore(Request $request)
@@ -298,8 +367,8 @@ class LibraryController extends Controller
 
     public function booksElementaryStore(Request $request)
     {
-        if (auth()->user()?->role !== 'Admin BEDELEM') {
-            abort(403, 'Only the BED Elementary admin can add books here.');
+        if (!in_array(auth()->user()?->role ?? '', ['Admin BEDELEM', 'Master'])) {
+            abort(403, 'Only the BED Elementary admin and Master can add books here.');
         }
 
         $request->validate([
@@ -394,8 +463,8 @@ class LibraryController extends Controller
 
     public function booksElementaryUpdate(Request $request, $accession_no)
     {
-        if (auth()->user()?->role !== 'Admin BEDELEM') {
-            abort(403, 'Only the BED Elementary admin can update books here.');
+        if (!in_array(auth()->user()?->role ?? '', ['Admin BEDELEM', 'Master'])) {
+            abort(403, 'Only the BED Elementary admin and Master can update books here.');
         }
 
         $book = BookElem::findOrFail($accession_no);
@@ -435,8 +504,8 @@ class LibraryController extends Controller
 
     public function booksElementaryDestroy($accession_no)
     {
-        if (auth()->user()?->role !== 'Admin BEDELEM') {
-            abort(403, 'Only the BED Elementary admin can delete books here.');
+        if (!in_array(auth()->user()?->role ?? '', ['Admin BEDELEM', 'Master'])) {
+            abort(403, 'Only the BED Elementary admin and Master can delete books here.');
         }
 
         BookElem::findOrFail($accession_no)->delete();
@@ -444,10 +513,78 @@ class LibraryController extends Controller
         return response()->json(['success' => true, 'message' => 'Book deleted successfully']);
     }
 
+    public function booksHighschoolStore(Request $request)
+    {
+        if (!in_array(auth()->user()?->role ?? '', ['Admin BEDHS', 'Master'])) {
+            abort(403, 'Only the BED High School admin and Master can add books here.');
+        }
+
+        $request->validate([
+            'accession_no' => 'required|string|unique:books_highschool,accession_no',
+            'barcode'      => 'nullable|string|unique:books_highschool,barcode',
+            'title'        => 'required|string',
+            'author'       => 'required|string',
+            'call_number'  => 'required|string',
+            'location'     => 'nullable|string',
+            'shelf_number' => 'nullable|string',
+        ]);
+
+        BookHighschool::create([
+            'accession_no' => $request->accession_no,
+            'barcode'      => $request->barcode,
+            'title'        => $request->title,
+            'author'       => $request->author,
+            'call_number'  => $request->call_number,
+            'location'     => $request->location,
+            'shelf_number' => $request->shelf_number,
+            'campus'       => 'DCC BED Highschool',
+            'status'       => 'Available',
+        ]);
+
+        return response()->json(['success' => true, 'message' => 'Book added successfully']);
+    }
+
+    public function booksHighschoolUpdate(Request $request, $accession_no)
+    {
+        if (!in_array(auth()->user()?->role ?? '', ['Admin BEDHS', 'Master'])) {
+            abort(403, 'Only the BED High School admin and Master can update books here.');
+        }
+
+        $book = BookHighschool::findOrFail($accession_no);
+        $request->validate([
+            'accession_no' => 'required|string|unique:books_highschool,accession_no,' . $accession_no . ',accession_no',
+            'barcode'      => 'nullable|string|unique:books_highschool,barcode,' . $accession_no . ',accession_no',
+            'title'        => 'required|string',
+            'author'       => 'required|string',
+            'call_number'  => 'required|string',
+            'location'     => 'nullable|string',
+            'shelf_number' => 'nullable|string',
+            'status'       => 'required|in:Available,Borrowed,available,borrowed',
+        ]);
+
+        $updateData = $request->only('accession_no', 'barcode', 'title', 'author', 'call_number', 'location', 'shelf_number', 'status');
+        $updateData['campus'] = 'DCC BED Highschool';
+
+        $book->update($updateData);
+        return response()->json(['success' => true, 'message' => 'Book updated successfully']);
+    }
+
+    public function booksHighschoolDestroy($accession_no)
+    {
+        if (!in_array(auth()->user()?->role ?? '', ['Admin BEDHS', 'Master'])) {
+            abort(403, 'Only the BED High School admin and Master can delete books here.');
+        }
+
+        BookHighschool::findOrFail($accession_no)->delete();
+
+        return response()->json(['success' => true, 'message' => 'Book deleted successfully']);
+    }
+
     // ----- BORROWING -----
     public function borrowIndex()
     {
-        return view('admin.library.borrow');
+        $bookTypes = BookType::where('status', 'ACTIVE')->orderBy('name')->get();
+        return view('admin.library.borrow', compact('bookTypes'));
     }
 
     public function checkBook(Request $request)
@@ -514,7 +651,7 @@ class LibraryController extends Controller
                 'borrow_type'  => 'required|in:Student,Faculty,Staff',
                 'books'        => 'required|array|min:1',
                 'books.*.accession_no' => 'required|string',
-                'books.*.book_section' => 'required|in:Reserved,Filipiniana,Circulation,Fiction,Thesis & Dissertation',
+                'books.*.book_section' => 'required|string|max:100',
                 'books.*.borrow_period' => 'required|string',
             ]);
             $booksList = $request->books;
@@ -523,7 +660,7 @@ class LibraryController extends Controller
                 'borrower_id'  => 'required|string',
                 'accession_no' => 'required|string',
                 'borrow_type'  => 'required|in:Student,Faculty,Staff',
-                'book_section' => 'required|in:Reserved,Filipiniana,Circulation,Fiction,Thesis & Dissertation',
+                'book_section' => 'required|string|max:100',
                 'borrow_period' => 'required|string',
             ]);
             $booksList = [[
@@ -777,7 +914,7 @@ class LibraryController extends Controller
             });
         }
 
-        $transactions = $query->get();
+        $transactions = $query->paginate(15);
         return view('admin.library.history', compact('transactions'));
     }
 
