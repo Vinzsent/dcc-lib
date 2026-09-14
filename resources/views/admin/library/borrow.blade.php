@@ -75,13 +75,13 @@
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <!-- Book Section -->
                                 <div>
-                                    <label class="block text-xs font-semibold text-gray-600 mb-1" for="book_section">Book Section</label>
+                                    <label class="block text-xs font-semibold text-gray-600 mb-1" for="book_section">Book Section / Type</label>
                                     <select id="book_section" class="w-full border-gray-300 rounded-lg shadow-sm text-sm p-2 border focus:ring-emerald-500 focus:border-emerald-500 bg-white">
-                                        <option value="Reserved">Reserved</option>
-                                        <option value="Filipiniana" selected>Filipiniana</option>
-                                        <option value="Circulation">Circulation</option>
-                                        <option value="Fiction">Fiction</option>
-                                        <option value="Thesis & Dissertation">Thesis & Dissertation</option>
+                                        @forelse($bookTypes ?? [] as $bType)
+                                            <option value="{{ $bType->name }}" {{ $loop->first ? 'selected' : '' }}>{{ $bType->name }}</option>
+                                        @empty
+                                            <option value="General" selected>General</option>
+                                        @endforelse
                                     </select>
                                 </div>
 

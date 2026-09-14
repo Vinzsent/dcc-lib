@@ -81,5 +81,17 @@
             </tbody>
         </table>
     </div>
+
+    {{-- Pagination --}}
+    <div class="mt-6 flex flex-col md:flex-row justify-between items-center gap-4 border-t border-gray-100 pt-6">
+        <div class="text-sm text-gray-500">
+            Showing <span class="font-semibold text-gray-700">{{ $transactions->firstItem() ?? 0 }}</span>
+            to <span class="font-semibold text-gray-700">{{ $transactions->lastItem() ?? 0 }}</span>
+            of <span class="font-semibold text-gray-700">{{ $transactions->total() }}</span> transactions
+        </div>
+        <div class="pagination-container">
+            {{ $transactions->links() }}
+        </div>
+    </div>
 </div>
 @endsection

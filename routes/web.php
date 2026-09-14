@@ -7,6 +7,7 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\ScannerController;
 use App\Http\Controllers\LibraryController;
 use App\Http\Controllers\ResearchController;
+use App\Http\Controllers\BookTypeController;
 
 Route::get('/', function () {
     return redirect()->route('login');
@@ -66,6 +67,10 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::post('/books-elementary', [LibraryController::class, 'booksElementaryStore'])->name('books.elementary.store');
         Route::put('/books-elementary/{accession_no}', [LibraryController::class, 'booksElementaryUpdate'])->name('books.elementary.update');
         Route::delete('/books-elementary/{accession_no}', [LibraryController::class, 'booksElementaryDestroy'])->name('books.elementary.destroy');
+        Route::get('/books-highschool', [LibraryController::class, 'booksHighschoolIndex'])->name('books.highschool');
+        Route::post('/books-highschool', [LibraryController::class, 'booksHighschoolStore'])->name('books.highschool.store');
+        Route::put('/books-highschool/{accession_no}', [LibraryController::class, 'booksHighschoolUpdate'])->name('books.highschool.update');
+        Route::delete('/books-highschool/{accession_no}', [LibraryController::class, 'booksHighschoolDestroy'])->name('books.highschool.destroy');
 
         Route::get('/research', [ResearchController::class, 'index'])->name('research.index');
         Route::post('/research', [ResearchController::class, 'store'])->name('research.store');
@@ -76,6 +81,12 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::post('/shelves', [LibraryController::class, 'shelvesStore'])->name('shelves.store');
         Route::put('/shelves/{id}', [LibraryController::class, 'shelvesUpdate'])->name('shelves.update');
         Route::delete('/shelves/{id}', [LibraryController::class, 'shelvesDestroy'])->name('shelves.destroy');
+
+        // Book Type / Selection Routes (Master only)
+        Route::get('/book-types', [BookTypeController::class, 'index'])->name('book-types.index');
+        Route::post('/book-types', [BookTypeController::class, 'store'])->name('book-types.store');
+        Route::put('/book-types/{bookType}', [BookTypeController::class, 'update'])->name('book-types.update');
+        Route::delete('/book-types/{bookType}', [BookTypeController::class, 'destroy'])->name('book-types.destroy');
 
         Route::get('/borrow', [LibraryController::class, 'borrowIndex'])->name('borrow.index');
         Route::post('/borrow', [LibraryController::class, 'borrowStore'])->name('borrow.store');

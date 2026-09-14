@@ -13,7 +13,7 @@
 
             <div class="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
                 <div class="relative w-full md:w-80">
-                    <form method="GET" action="{{ route('admin.library.books.index') }}">
+                    <form method="GET" action="{{ route('admin.library.books.elementary') }}">
                         @foreach(request()->except('search', 'page') as $key => $value)
                             @if(is_array($value))
                                 @foreach($value as $v)
@@ -34,7 +34,7 @@
                             class="w-full py-2 pl-10 {{ request('search') ? 'pr-10' : 'pr-4' }} text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600 transition"
                             placeholder="Search books...">
                         @if(request('search'))
-                            <a href="{{ route('admin.library.books.index', request()->except('search', 'page')) }}" class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600">
+                            <a href="{{ route('admin.library.books.elementary', request()->except('search', 'page')) }}" class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                                 </svg>
@@ -56,7 +56,7 @@
         </div>
 
         <div class="overflow-x-auto">
-            <form id="filterForm" method="GET" action="{{ route('admin.library.books.index') }}">
+            <form id="filterForm" method="GET" action="{{ route('admin.library.books.elementary') }}">
                 <input type="hidden" name="search" value="{{ request('search') }}">
                 <input type="hidden" name="sort" value="{{ request('sort') }}">
                 <input type="hidden" name="direction" value="{{ request('direction') }}">
@@ -128,7 +128,7 @@
                             </td>
                             <td class="py-2 px-6 text-center whitespace-nowrap">
                                 <button type="submit" class="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700 transition">Filter</button>
-                                <a href="{{ route('admin.library.books.index') }}" class="text-xs bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600 transition ml-1 inline-block">Clear</a>
+                                <a href="{{ route('admin.library.books.elementary') }}" class="text-xs bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600 transition ml-1 inline-block">Clear</a>
                             </td>
                         </tr>
                     </thead>
@@ -342,7 +342,7 @@
             data._token = '{{ csrf_token() }}';
 
             try {
-                const res = await fetch('{{ route('admin.library.books.store') }}', {
+                const res = await fetch('{{ route('admin.library.books.elementary.store') }}', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -375,7 +375,7 @@
                 return;
             }
 
-            const url = '{{ route('admin.library.books.update', ':id') }}'.replace(':id', originalAccNo);
+            const url = '{{ route('admin.library.books.elementary.update', ':id') }}'.replace(':id', originalAccNo);
 
             try {
                 const res = await fetch(url, {
@@ -405,7 +405,7 @@
 
         async function deleteBook(accession_number) {
             if (!confirm('Are you sure you want to delete this book?')) return;
-            const url = '{{ route('admin.library.books.destroy', ':id') }}'.replace(':id', accession_number);
+            const url = '{{ route('admin.library.books.elementary.destroy', ':id') }}'.replace(':id', accession_number);
             try {
                 const res = await fetch(url, {
                     method: 'POST',

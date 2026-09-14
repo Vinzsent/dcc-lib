@@ -142,6 +142,37 @@
             margin-right: 1rem;
         }
 
+        /* Nav Dropdown / Submenu (e.g. Library Books collections) */
+        .nav-dropdown { position: relative; }
+        .nav-dropdown > .nav-link { cursor: pointer; user-select: none; }
+        .nav-chevron {
+            margin-left: auto;
+            min-width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+            transition: transform 0.3s ease;
+        }
+        .nav-dropdown.open .nav-chevron { transform: rotate(180deg); }
+        .nav-submenu {
+            list-style: none;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        .nav-dropdown.open .nav-submenu { max-height: 360px; }
+        .nav-submenu .nav-subitem { margin-bottom: 0.2rem; }
+        .nav-submenu .nav-link {
+            padding: 0.55rem 1rem 0.55rem 2.75rem;
+            font-size: 0.875rem;
+            border-left: 2px solid transparent;
+        }
+        .nav-submenu .nav-link .nav-icon {
+            min-width: 18px;
+            height: 18px;
+            margin-right: 0.75rem;
+        }
+        .nav-submenu .nav-link.active { border-left-color: var(--color-accent); }
+
         /* Toggle State: Collapsed (Desktop) */
         body.sidebar-collapsed .sidebar {
             width: var(--sidebar-width-collapsed);
@@ -411,13 +442,49 @@
                 <span>Library Module</span>
             </div>
             
-            <li class="nav-item">
-                <a href="{{ route('admin.library.books.index') }}" class="nav-link {{ request()->routeIs('admin.library.books.*') ? 'active' : '' }}">
+            <li class="nav-item nav-dropdown {{ request()->routeIs('admin.library.books.*') ? 'open' : '' }}" id="booksNavItem">
+                <a href="javascript:void(0)" onclick="toggleBooksSubmenu(event)" aria-haspopup="true" aria-expanded="{{ request()->routeIs('admin.library.books.*') ? 'true' : 'false' }}"
+                    class="nav-link {{ request()->routeIs('admin.library.books.*') ? 'active' : '' }}">
                     <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                     </svg>
                     <span class="link-text">Books</span>
+                    <svg class="nav-chevron link-text" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
                 </a>
+                <ul class="nav-submenu">
+                    @if(!in_array(auth()->user()?->role ?? '', ['Admin BEDELEM', 'Admin BEDHS']))
+                        <li class="nav-subitem">
+                            <a href="{{ route('admin.library.books.index') }}" class="nav-link {{ request()->routeIs('admin.library.books.index') ? 'active' : '' }}">
+                                <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                </svg>
+                                <span class="link-text">College / TED</span>
+                            </a>
+                        </li>
+                    @endif
+                    @if(in_array(auth()->user()?->role ?? '', ['Admin BEDHS', 'Master']))
+                        <li class="nav-subitem">
+                            <a href="{{ route('admin.library.books.highschool') }}" class="nav-link {{ request()->routeIs('admin.library.books.highschool*') ? 'active' : '' }}">
+                                <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                </svg>
+                                <span class="link-text">High School</span>
+                            </a>
+                        </li>
+                    @endif
+                    @if(in_array(auth()->user()?->role ?? '', ['Admin BEDELEM', 'Master']))
+                        <li class="nav-subitem">
+                            <a href="{{ route('admin.library.books.elementary') }}" class="nav-link {{ request()->routeIs('admin.library.books.elementary*') ? 'active' : '' }}">
+                                <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                </svg>
+                                <span class="link-text">Elementary</span>
+                            </a>
+                        </li>
+                    @endif
+                </ul>
             </li>
             <li class="nav-item">
     <a href="{{ route('admin.library.research.index') }}" class="nav-link {{ request()->routeIs('admin.library.research.*') ? 'active' : '' }}">
@@ -437,6 +504,16 @@
                     <span class="link-text">Shelves</span>
                 </a>
             </li>
+            @if($isMaster)
+            <li class="nav-item">
+                <a href="{{ route('admin.library.book-types.index') }}" class="nav-link {{ request()->routeIs('admin.library.book-types.*') ? 'active' : '' }}">
+                    <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                    </svg>
+                    <span class="link-text">Book Types</span>
+                </a>
+            </li>
+            @endif
             <li class="nav-item">
                 <a href="{{ route('admin.library.borrow.index') }}" class="nav-link {{ request()->routeIs('admin.library.borrow.*') ? 'active' : '' }}">
                     <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -625,6 +702,16 @@
         function hideAccessDeniedModal() {
             document.getElementById('accessDeniedModal').classList.add('hidden');
             document.body.style.overflow = '';
+        }
+
+        // Toggle the Books dropdown submenu in the sidebar
+        function toggleBooksSubmenu(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            const item = document.getElementById('booksNavItem');
+            const isOpen = item.classList.toggle('open');
+            const link = item.querySelector('.nav-link');
+            if (link) link.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
         }
 
         // Close the Access Restricted popup with Esc
