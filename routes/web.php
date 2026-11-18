@@ -96,6 +96,11 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::post('/return', [LibraryController::class, 'returnUpdate'])->name('return.update');
 
         Route::get('/history', [LibraryController::class, 'historyIndex'])->name('history');
+
+        // Borrow Checker (look up a student's borrow records & status)
+        Route::get('/borrower-checker', [LibraryController::class, 'borrowerChecker'])->name('checker.index');
+        Route::get('/borrower-checker/students', [LibraryController::class, 'borrowerCheckerStudents'])->name('checker.students');
+        Route::get('/borrower-checker/history', [LibraryController::class, 'borrowerCheckerHistory'])->name('checker.history');
         Route::get('/charges', [LibraryController::class, 'chargesIndex'])->name('charges.index');
         Route::get('/reports', [LibraryController::class, 'reportsIndex'])->name('reports');
         Route::get('/reports/export', [LibraryController::class, 'reportsExport'])->name('reports.export');
