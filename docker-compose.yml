@@ -1,0 +1,24 @@
+
+services:
+  dcc-lib-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: dcc-lib-app
+
+    restart: unless-stopped
+
+    env_file:
+      - .env
+
+    ports:
+      - "192.168.1.2:8090:80"
+
+    networks:
+      - dcc_lib_net
+
+networks:
+  dcc_lib_net:
+    external: true
+    name: dcc_lib_net

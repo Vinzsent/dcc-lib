@@ -28,7 +28,7 @@ return new class extends Migration
             DB::statement('UPDATE "employees" SET "eid" = COALESCE(NULLIF(rfid, ""), \'EMP-\' || id) WHERE "eid" IS NULL');
         } else {
             // MySQL and other databases
-            DB::statement('UPDATE "employees" SET "eid" = COALESCE(NULLIF(rfid, ""), CONCAT(\'EMP-\', id)) WHERE "eid" IS NULL');
+            DB::statement("UPDATE `employees` SET `eid` = COALESCE(NULLIF(rfid, ''), CONCAT('EMP-', id)) WHERE `eid` IS NULL");
         }
 
         // Ensure eid is required and has unique index
