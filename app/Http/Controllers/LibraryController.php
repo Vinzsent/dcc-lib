@@ -918,6 +918,197 @@ class LibraryController extends Controller
         return view('admin.library.history', compact('transactions'));
     }
 
+    // ----- BORROWER CHECKER -----
+    /**
+     * Student borrow checker page.
+     */
+    public function borrowerChecker()
+    {
+        $role = auth()->user()?->role ?? '';
+        $showCampus = !in_array($role, ['Admin BEDELEM', 'Admin BEDHS']);
+
+        return view('admin.library.borrower-checker', compact('showCampus'));
+    }
+
+    /**
+     * Live search endpoint for students (JSON).
+     */
+    public function borrowerCheckerStudents(Request $request)
+    {
+        $q = trim((string) $request->input('q', ''));
+
+        if ($q === '') {
+            return response()->json(['students' => []]);
+        }
+
+        $base = Student::query()
+            ->where(function ($query) use ($q) {
+                $query->where('sid', 'like', "%{$q}%")
+                      ->orWhere('rfid', 'like', "%{$q}%")
+                      ->orWhere('firstname', 'like', "%{$q}%")
+                      ->orWhere('middlename', 'like', "%{$q}%")
+                      ->orWhere('lastname', 'like', "%{$q}%");
+            });
+
+        $total = (clone $base)->count();
+
+        $students = $base->orderBy('lastname')
+            ->orderBy('firstname')
+            ->limit(25)
+            ->get();
+
+        if ($students->isEmpty()) {
+            return response()->json(['students' => [], 'total' => 0]);
+        }
+
+        // borrower_id stores whatever was scanned/typed at borrow time (SID or RFID),
+        // so count on both. Single grouped query for all matched students.
+        $lookupIds = $students->pluck('sid')
+            ->merge($students->pluck('rfid')->filter())
+            ->unique()
+            ->values();
+
+        $counts = Transaction::selectRaw("borrower_id, COUNT(*) as total, SUM(CASE WHEN status = 'Borrowed' THEN 1 ELSE 0 END) as active")
+            ->where('borrower_type', Student::class)
+            ->whereIn('borrower_id', $lookupIds)
+            ->groupBy('borrower_id')
+            ->get()
+            ->keyBy('borrower_id');
+
+        return response()->json([
+            'total'    => $total,
+            'students' => $students->map(function ($s) use ($counts) {
+                $countFor = fn ($id) => $id ? ($counts[$id] ?? null) : null;
+
+                $total  = (int) (($countFor($s->sid)->total ?? 0) + ($countFor($s->rfid)->total ?? 0));
+                $active = (int) (($countFor($s->sid)->active ?? 0) + ($countFor($s->rfid)->active ?? 0));
+
+                return [
+                    'sid'        => $s->sid,
+                    'rfid'       => $s->rfid,
+                    'name'       => trim("{$s->firstname} " . ($s->middlename ? $s->middlename[0] . '. ' : '') . $s->lastname),
+                    'department' => $s->department,
+                    'course'     => $s->course,
+                    'year'       => $s->year,
+                    'grade'      => $s->grade,
+                    'section'    => $s->section,
+                    'campus'     => $s->campus,
+                    'total_borrows'  => $total,
+                    'active_borrows' => $active,
+                ];
+            }),
+        ]);
+    }
+
+    /**
+     * Borrow history for a specific student (JSON).
+     */
+    public function borrowerCheckerHistory(Request $request)
+    {
+        $sid = trim((string) $request->input('sid', ''));
+
+        if ($sid === '') {
+            return response()->json(['success' => false, 'message' => 'Student ID is required.'], 422);
+        }
+
+        $student = Student::where('sid', $sid)->orWhere('rfid', $sid)->first();
+
+        if (!$student) {
+            return response()->json(['success' => false, 'message' => 'Student not found.'], 404);
+        }
+
+        $modelClass   = $this->getBookModel();
+        $campusFilter = $this->getRoleCampusFilter();
+
+        $query = Transaction::with('book')
+            ->where('borrower_type', Student::class)
+            ->where(function ($q) use ($student) {
+                $q->where('borrower_id', $student->sid)
+                  ->orWhere('borrower_id', $student->rfid);
+            });
+
+        // Scope to the admin's own collection / campus, same as Transaction History.
+        if ($modelClass === BookHighschool::class) {
+            $query->where('book_type', BookHighschool::class);
+        } elseif ($modelClass === BookElem::class) {
+            $query->where('book_type', BookElem::class);
+        } elseif ($campusFilter !== null) {
+            $query->whereHas('book', function ($q) use ($campusFilter) {
+                $q->whereIn('campus', $campusFilter);
+            });
+        }
+
+        $perPage = 10;
+        $page    = max(1, (int) $request->input('page', 1));
+
+        $all = $query->orderByDesc('date_borrowed')->limit(500)->get();
+
+        $now  = Carbon::now();
+        // Compact dates: only Reserved sections are hour-based, everything else is date-only.
+        $fmtDate = function ($value, $section) {
+            if (!$value) return null;
+            return Carbon::parse($value)->format($section === 'Reserved' ? 'M d, Y g:i A' : 'M d, Y');
+        };
+
+        $rows = $all->map(function ($txn) use ($now, $fmtDate) {
+            $status = $txn->status;
+            if ($status === 'Borrowed' && $txn->due_date && $now->gt(Carbon::parse($txn->due_date))) {
+                $status = 'Overdue';
+            }
+
+            return [
+                'accession_no'  => $txn->accession_no,
+                'title'         => $txn->book->title ?? 'Deleted Book',
+                'author'        => $txn->book->author ?? '',
+                'campus'        => $txn->book->campus ?? null,
+                'borrow_type'   => $txn->borrow_type,
+                'book_section'  => $txn->book_section,
+                'date_borrowed' => $fmtDate($txn->date_borrowed, $txn->book_section),
+                'due_date'      => $fmtDate($txn->due_date, $txn->book_section),
+                'date_returned' => $fmtDate($txn->date_returned, $txn->book_section),
+                'fine'          => (float) $txn->fine,
+                'status'        => $status,
+            ];
+        });
+
+        $total    = $rows->count();
+        $lastPage = max(1, (int) ceil($total / $perPage));
+        $page     = min($page, $lastPage);
+        $paged    = $rows->slice(($page - 1) * $perPage, $perPage)->values();
+
+        return response()->json([
+            'success' => true,
+            'student' => [
+                'sid'        => $student->sid,
+                'rfid'       => $student->rfid,
+                'name'       => trim("{$student->firstname} " . ($student->middlename ? $student->middlename[0] . '. ' : '') . $student->lastname),
+                'department' => $student->department,
+                'course'     => $student->course,
+                'year'       => $student->year,
+                'grade'      => $student->grade,
+                'section'    => $student->section,
+                'campus'     => $student->campus,
+            ],
+            'summary' => [
+                'has_borrowed'        => $rows->isNotEmpty(),
+                'currently_borrowing' => $rows->where('status', 'Borrowed')->count(),
+                'total_borrows'       => $rows->count(),
+                'total_returned'      => $rows->where('status', 'Returned')->count(),
+                'total_overdue'       => $rows->where('status', 'Overdue')->count(),
+                'total_fines'         => (float) max(0, $rows->sum('fine')),
+            ],
+            'transactions' => $paged,
+            'pagination'   => [
+                'current_page' => $page,
+                'last_page'    => $lastPage,
+                'per_page'     => $perPage,
+                'total'        => $total,
+                'from'         => $total === 0 ? 0 : ($page - 1) * $perPage + 1,
+                'to'           => min($total, $page * $perPage),
+            ],
+        ]);
+    }
+
     // ----- CHARGES / OVERDUE FINES -----
     public function chargesIndex(Request $request)
     {
