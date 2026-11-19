@@ -171,9 +171,105 @@
             font-weight: 600;
             letter-spacing: 1px;
         }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            margin: 1.5rem 0 1rem 0;
+            color: #888;
+            font-size: 0.75rem;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .divider span {
+            padding: 0 0.75rem;
+        }
+
+        .scanner-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 11px;
+            background-color: #f0fdf4;
+            color: #065f46;
+            border: 1.5px solid #a7f3d0;
+            border-radius: 25px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            box-sizing: border-box;
+        }
+
+        .scanner-btn:hover {
+            background-color: #0a4d2a;
+            color: #FEBA01;
+            border-color: #0a4d2a;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(10, 77, 42, 0.2);
+        }
+
+        .scanner-btn svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .fixed-scanner-link {
+            position: fixed;
+            top: 1.25rem;
+            right: 1.25rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: rgba(254, 186, 1, 0.85);
+            background: rgba(0, 0, 0, 0.25);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            text-decoration: none;
+            border: 1px solid rgba(254, 186, 1, 0.3);
+            transition: all 0.2s ease;
+            z-index: 50;
+        }
+
+        .fixed-scanner-link:hover {
+            color: #FEBA01;
+            background: rgba(0, 0, 0, 0.45);
+            border-color: rgba(254, 186, 1, 0.6);
+            transform: translateY(-1px);
+        }
+
+        .fixed-scanner-link svg {
+            width: 16px;
+            height: 16px;
+        }
     </style>
 </head>
 <body>
+
+    <!-- Scanner Top Link -->
+    <a href="{{ route('scanner') }}" class="fixed-scanner-link" title="Go to Library Scanner">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        </svg>
+        Library Scanner
+    </a>
 
 <div class="login-card">
         <div style="margin-bottom: 2rem;">
@@ -240,6 +336,18 @@
                 Login
             </button>
         </form>
+
+        <div class="divider">
+            <span>OR</span>
+        </div>
+
+        <!-- Scanner Page Link -->
+        <a href="{{ route('scanner') }}" class="scanner-btn">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            Go to Library Scanner
+        </a>
             
     </div>
 

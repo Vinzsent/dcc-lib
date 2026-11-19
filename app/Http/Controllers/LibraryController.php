@@ -675,7 +675,8 @@ class LibraryController extends Controller
             ->orWhere('rfid', $request->borrower_id)->first();
 
         $employee = Employee::where('id', $request->borrower_id)
-            ->orWhere('rfid', $request->borrower_id)->first();
+            ->orWhere('rfid', $request->borrower_id)
+            ->orWhere('eid', $request->borrower_id)->first();
 
         $borrower = $student ?: $employee;
         if (!$borrower) {
@@ -931,101 +932,228 @@ class LibraryController extends Controller
     }
 
     /**
-     * Live search endpoint for students (JSON).
+     * Live search endpoint for students and employees (JSON).
      */
     public function borrowerCheckerStudents(Request $request)
     {
         $q = trim((string) $request->input('q', ''));
+        $filterType = trim((string) $request->input('type', 'all')); // 'all', 'student', 'employee'
 
         if ($q === '') {
-            return response()->json(['students' => []]);
+            return response()->json(['students' => [], 'borrowers' => [], 'total' => 0]);
         }
 
-        $base = Student::query()
-            ->where(function ($query) use ($q) {
-                $query->where('sid', 'like', "%{$q}%")
-                      ->orWhere('rfid', 'like', "%{$q}%")
-                      ->orWhere('firstname', 'like', "%{$q}%")
-                      ->orWhere('middlename', 'like', "%{$q}%")
-                      ->orWhere('lastname', 'like', "%{$q}%");
-            });
+        $students = collect();
+        $studentTotal = 0;
+        if ($filterType === 'all' || $filterType === 'student') {
+            $studentBase = Student::query()
+                ->where(function ($query) use ($q) {
+                    $query->where('sid', 'like', "%{$q}%")
+                          ->orWhere('rfid', 'like', "%{$q}%")
+                          ->orWhere('firstname', 'like', "%{$q}%")
+                          ->orWhere('middlename', 'like', "%{$q}%")
+                          ->orWhere('lastname', 'like', "%{$q}%")
+                          ->orWhereRaw("CONCAT_WS(' ', firstname, middlename, lastname) LIKE ?", ["%{$q}%"])
+                          ->orWhereRaw("CONCAT_WS(' ', firstname, lastname) LIKE ?", ["%{$q}%"]);
+                });
 
-        $total = (clone $base)->count();
-
-        $students = $base->orderBy('lastname')
-            ->orderBy('firstname')
-            ->limit(25)
-            ->get();
-
-        if ($students->isEmpty()) {
-            return response()->json(['students' => [], 'total' => 0]);
+            $studentTotal = (clone $studentBase)->count();
+            $students = $studentBase->orderBy('lastname')->orderBy('firstname')->limit(25)->get();
         }
 
-        // borrower_id stores whatever was scanned/typed at borrow time (SID or RFID),
-        // so count on both. Single grouped query for all matched students.
-        $lookupIds = $students->pluck('sid')
+        $employees = collect();
+        $employeeTotal = 0;
+        if ($filterType === 'all' || $filterType === 'employee') {
+            $employeeBase = Employee::query()
+                ->where(function ($query) use ($q) {
+                    $query->where('eid', 'like', "%{$q}%")
+                          ->orWhere('rfid', 'like', "%{$q}%")
+                          ->orWhere('firstname', 'like', "%{$q}%")
+                          ->orWhere('middlename', 'like', "%{$q}%")
+                          ->orWhere('lastname', 'like', "%{$q}%")
+                          ->orWhereRaw("CONCAT_WS(' ', firstname, middlename, lastname) LIKE ?", ["%{$q}%"])
+                          ->orWhereRaw("CONCAT_WS(' ', firstname, lastname) LIKE ?", ["%{$q}%"]);
+                });
+
+            $employeeTotal = (clone $employeeBase)->count();
+            $employees = $employeeBase->orderBy('lastname')->orderBy('firstname')->limit(25)->get();
+        }
+
+        // Student transaction counts
+        $studentLookupIds = $students->pluck('sid')
             ->merge($students->pluck('rfid')->filter())
             ->unique()
             ->values();
 
-        $counts = Transaction::selectRaw("borrower_id, COUNT(*) as total, SUM(CASE WHEN status = 'Borrowed' THEN 1 ELSE 0 END) as active")
+        $studentCounts = $studentLookupIds->isEmpty() ? collect() : Transaction::selectRaw("borrower_id, COUNT(*) as total, SUM(CASE WHEN status = 'Borrowed' THEN 1 ELSE 0 END) as active")
             ->where('borrower_type', Student::class)
-            ->whereIn('borrower_id', $lookupIds)
+            ->whereIn('borrower_id', $studentLookupIds)
             ->groupBy('borrower_id')
             ->get()
             ->keyBy('borrower_id');
 
+        // Employee transaction counts
+        $employeeLookupIds = $employees->pluck('eid')
+            ->merge($employees->pluck('rfid')->filter())
+            ->merge($employees->pluck('id')->map(fn($id) => (string)$id))
+            ->unique()
+            ->values();
+
+        $employeeCounts = $employeeLookupIds->isEmpty() ? collect() : Transaction::selectRaw("borrower_id, COUNT(*) as total, SUM(CASE WHEN status = 'Borrowed' THEN 1 ELSE 0 END) as active")
+            ->where(function ($query) {
+                $query->where('borrower_type', Employee::class)
+                      ->orWhere('borrower_type', 'like', '%Employee%');
+            })
+            ->whereIn('borrower_id', $employeeLookupIds)
+            ->groupBy('borrower_id')
+            ->get()
+            ->keyBy('borrower_id');
+
+        $mappedStudents = $students->map(function ($s) use ($studentCounts) {
+            $keys = array_values(array_unique(array_filter([(string)$s->sid, (string)$s->rfid])));
+            $total = 0;
+            $active = 0;
+            foreach ($keys as $k) {
+                if (isset($studentCounts[$k])) {
+                    $total += (int) $studentCounts[$k]->total;
+                    $active += (int) $studentCounts[$k]->active;
+                }
+            }
+
+            return [
+                'type'            => 'student',
+                'id'              => $s->id,
+                'sid'             => $s->sid,
+                'eid'             => null,
+                'rfid'            => $s->rfid,
+                'name'            => trim("{$s->firstname} " . ($s->middlename ? $s->middlename[0] . '. ' : '') . $s->lastname),
+                'full_name'       => trim("{$s->firstname} " . ($s->middlename ? "{$s->middlename} " : '') . $s->lastname),
+                'department'      => $s->department,
+                'course'          => $s->course,
+                'year'            => $s->year,
+                'grade'           => $s->grade,
+                'section'         => $s->section,
+                'campus'          => $s->campus,
+                'position'        => null,
+                'employment_type' => null,
+                'total_borrows'   => $total,
+                'active_borrows'  => $active,
+            ];
+        });
+
+        $mappedEmployees = $employees->map(function ($e) use ($employeeCounts) {
+            $keys = array_values(array_unique(array_filter([(string)$e->eid, (string)$e->rfid, (string)$e->id])));
+            $total = 0;
+            $active = 0;
+            foreach ($keys as $k) {
+                if (isset($employeeCounts[$k])) {
+                    $total += (int) $employeeCounts[$k]->total;
+                    $active += (int) $employeeCounts[$k]->active;
+                }
+            }
+
+            return [
+                'type'            => 'employee',
+                'id'              => $e->id,
+                'sid'             => $e->eid,
+                'eid'             => $e->eid,
+                'rfid'            => $e->rfid,
+                'name'            => trim("{$e->firstname} " . ($e->middlename ? $e->middlename[0] . '. ' : '') . $e->lastname),
+                'full_name'       => trim("{$e->firstname} " . ($e->middlename ? "{$e->middlename} " : '') . $e->lastname),
+                'department'      => $e->department,
+                'course'          => null,
+                'year'            => null,
+                'grade'           => null,
+                'section'         => null,
+                'campus'          => $e->campus,
+                'position'        => $e->position,
+                'employment_type' => $e->employment_type,
+                'total_borrows'   => $total,
+                'active_borrows'  => $active,
+            ];
+        });
+
+        // Combined results
+        $combined = $mappedStudents->concat($mappedEmployees)->values();
+
         return response()->json([
-            'total'    => $total,
-            'students' => $students->map(function ($s) use ($counts) {
-                $countFor = fn ($id) => $id ? ($counts[$id] ?? null) : null;
-
-                $total  = (int) (($countFor($s->sid)->total ?? 0) + ($countFor($s->rfid)->total ?? 0));
-                $active = (int) (($countFor($s->sid)->active ?? 0) + ($countFor($s->rfid)->active ?? 0));
-
-                return [
-                    'sid'        => $s->sid,
-                    'rfid'       => $s->rfid,
-                    'name'       => trim("{$s->firstname} " . ($s->middlename ? $s->middlename[0] . '. ' : '') . $s->lastname),
-                    'department' => $s->department,
-                    'course'     => $s->course,
-                    'year'       => $s->year,
-                    'grade'      => $s->grade,
-                    'section'    => $s->section,
-                    'campus'     => $s->campus,
-                    'total_borrows'  => $total,
-                    'active_borrows' => $active,
-                ];
-            }),
+            'total'     => $studentTotal + $employeeTotal,
+            'students'  => $combined,
+            'borrowers' => $combined,
         ]);
     }
 
     /**
-     * Borrow history for a specific student (JSON).
+     * Borrow history for a specific student or employee (JSON).
      */
     public function borrowerCheckerHistory(Request $request)
     {
-        $sid = trim((string) $request->input('sid', ''));
+        $id = trim((string) ($request->input('id') ?: $request->input('sid') ?: $request->input('eid', '')));
+        $type = trim((string) $request->input('type', ''));
 
-        if ($sid === '') {
-            return response()->json(['success' => false, 'message' => 'Student ID is required.'], 422);
+        if ($id === '') {
+            return response()->json(['success' => false, 'message' => 'Borrower identifier is required.'], 422);
         }
 
-        $student = Student::where('sid', $sid)->orWhere('rfid', $sid)->first();
+        $borrower = null;
+        $borrowerType = null;
 
-        if (!$student) {
-            return response()->json(['success' => false, 'message' => 'Student not found.'], 404);
+        if ($type === 'employee') {
+            $borrower = Employee::where('eid', $id)
+                ->orWhere('rfid', $id)
+                ->orWhere('id', $id)
+                ->first();
+            if ($borrower) {
+                $borrowerType = 'employee';
+            }
+        } elseif ($type === 'student') {
+            $borrower = Student::where('sid', $id)
+                ->orWhere('rfid', $id)
+                ->orWhere('id', $id)
+                ->first();
+            if ($borrower) {
+                $borrowerType = 'student';
+            }
+        }
+
+        if (!$borrower) {
+            // Auto-detect: check Student first, then Employee
+            $borrower = Student::where('sid', $id)->orWhere('rfid', $id)->first();
+            if ($borrower) {
+                $borrowerType = 'student';
+            } else {
+                $borrower = Employee::where('eid', $id)
+                    ->orWhere('rfid', $id)
+                    ->orWhere('id', $id)
+                    ->first();
+                if ($borrower) {
+                    $borrowerType = 'employee';
+                }
+            }
+        }
+
+        if (!$borrower) {
+            return response()->json(['success' => false, 'message' => 'Borrower not found.'], 404);
         }
 
         $modelClass   = $this->getBookModel();
         $campusFilter = $this->getRoleCampusFilter();
 
-        $query = Transaction::with('book')
-            ->where('borrower_type', Student::class)
-            ->where(function ($q) use ($student) {
-                $q->where('borrower_id', $student->sid)
-                  ->orWhere('borrower_id', $student->rfid);
-            });
+        if ($borrowerType === 'employee') {
+            $lookupIds = array_values(array_unique(array_filter([(string)$borrower->eid, (string)$borrower->rfid, (string)$borrower->id])));
+            $query = Transaction::with('book')
+                ->where(function ($q) {
+                    $q->where('borrower_type', Employee::class)
+                      ->orWhere('borrower_type', 'App\Models\Employee')
+                      ->orWhere('borrower_type', 'like', '%Employee%');
+                })
+                ->whereIn('borrower_id', $lookupIds);
+        } else {
+            $lookupIds = array_values(array_unique(array_filter([(string)$borrower->sid, (string)$borrower->rfid])));
+            $query = Transaction::with('book')
+                ->where('borrower_type', Student::class)
+                ->whereIn('borrower_id', $lookupIds);
+        }
 
         // Scope to the admin's own collection / campus, same as Transaction History.
         if ($modelClass === BookHighschool::class) {
@@ -1076,20 +1204,29 @@ class LibraryController extends Controller
         $page     = min($page, $lastPage);
         $paged    = $rows->slice(($page - 1) * $perPage, $perPage)->values();
 
+        $borrowerPayload = [
+            'type'            => $borrowerType,
+            'id'              => $borrower->id,
+            'sid'             => $borrowerType === 'student' ? $borrower->sid : $borrower->eid,
+            'eid'             => $borrowerType === 'employee' ? $borrower->eid : null,
+            'rfid'            => $borrower->rfid,
+            'name'            => trim("{$borrower->firstname} " . ($borrower->middlename ? $borrower->middlename[0] . '. ' : '') . $borrower->lastname),
+            'full_name'       => trim("{$borrower->firstname} " . ($borrower->middlename ? "{$borrower->middlename} " : '') . $borrower->lastname),
+            'department'      => $borrower->department,
+            'course'          => $borrower->course ?? null,
+            'year'            => $borrower->year ?? null,
+            'grade'           => $borrower->grade ?? null,
+            'section'         => $borrower->section ?? null,
+            'position'        => $borrower->position ?? null,
+            'employment_type' => $borrower->employment_type ?? null,
+            'campus'          => $borrower->campus,
+        ];
+
         return response()->json([
-            'success' => true,
-            'student' => [
-                'sid'        => $student->sid,
-                'rfid'       => $student->rfid,
-                'name'       => trim("{$student->firstname} " . ($student->middlename ? $student->middlename[0] . '. ' : '') . $student->lastname),
-                'department' => $student->department,
-                'course'     => $student->course,
-                'year'       => $student->year,
-                'grade'      => $student->grade,
-                'section'    => $student->section,
-                'campus'     => $student->campus,
-            ],
-            'summary' => [
+            'success'      => true,
+            'student'      => $borrowerPayload, // backward compatibility
+            'borrower'     => $borrowerPayload,
+            'summary'      => [
                 'has_borrowed'        => $rows->isNotEmpty(),
                 'currently_borrowing' => $rows->where('status', 'Borrowed')->count(),
                 'total_borrows'       => $rows->count(),

@@ -16,12 +16,28 @@
                           d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
             </div>
-            <h2 class="text-2xl md:text-3xl font-bold text-white">Student Borrow Checker</h2>
+            <h2 class="text-2xl md:text-3xl font-bold text-white">Borrower Checker</h2>
             <p class="text-emerald-100/80 mt-2 text-sm md:text-base">
-                Search a student to see if he or she currently borrows a book — and view the full borrow history.
+                Search a student or employee to see if they currently borrow a book — and view their full borrow history.
             </p>
 
-            <div class="relative max-w-2xl mx-auto mt-6" id="searchWrap">
+            {{-- Filter tabs: All Borrowers / Students / Employees --}}
+            <div class="inline-flex items-center p-1 rounded-xl bg-black/20 backdrop-blur mt-5 ring-1 ring-white/10">
+                <button type="button" onclick="setFilter('all')" id="filter-all"
+                        class="filter-btn px-4 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition bg-white text-emerald-950 shadow-sm">
+                    All Borrowers
+                </button>
+                <button type="button" onclick="setFilter('student')" id="filter-student"
+                        class="filter-btn px-4 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition text-emerald-100 hover:text-white">
+                    Students
+                </button>
+                <button type="button" onclick="setFilter('employee')" id="filter-employee"
+                        class="filter-btn px-4 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition text-emerald-100 hover:text-white">
+                    Employees
+                </button>
+            </div>
+
+            <div class="relative max-w-2xl mx-auto mt-4" id="searchWrap">
                 <div class="relative">
                     <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                         <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -30,7 +46,7 @@
                         </svg>
                     </div>
                     <input type="text" id="studentSearch" autocomplete="off" autofocus
-                           placeholder="Type name, Student ID (SID) or RFID…"
+                           placeholder="Type name, Student ID (SID), Employee ID (EID) or RFID…"
                            class="w-full pl-12 pr-12 py-4 rounded-xl border-0 shadow-xl text-gray-800 text-base md:text-lg bg-white placeholder-gray-400 focus:ring-4 focus:ring-amber-300/50 focus:outline-none transition" />
                     <div id="searchSpinner" class="absolute inset-y-0 right-0 pr-4 hidden items-center">
                         <svg class="animate-spin w-5 h-5 text-emerald-700" fill="none" viewBox="0 0 24 24">
@@ -66,8 +82,8 @@
                       d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 21h16v-11H4v11z" />
             </svg>
         </div>
-        <h3 class="text-lg font-semibold text-gray-700">No student selected yet</h3>
-        <p class="text-gray-400 text-sm mt-1">Start typing a student's name or ID in the search box above to check their borrow records.</p>
+        <h3 class="text-lg font-semibold text-gray-700">No borrower selected yet</h3>
+        <p class="text-gray-400 text-sm mt-1">Start typing a student or employee's name, ID, or RFID in the search box above to check their borrow records.</p>
     </div>
 
     {{-- ─── Result ─── --}}
@@ -82,16 +98,17 @@
 
                 <div class="flex-1 min-w-0">
                     <div class="flex flex-wrap items-center gap-3">
-                        <h3 id="studentName" class="text-xl font-bold text-gray-800"></h3>
+                        <h3 id="studentName" class="text-xl md:text-2xl font-bold text-gray-800"></h3>
+                        <span id="borrowerTypePill"></span>
                         <span id="studentStatusPill"></span>
                     </div>
-                    <div id="studentMeta" class="flex flex-wrap gap-2 mt-2"></div>
+                    <div id="studentMeta" class="flex flex-wrap gap-2 mt-2.5"></div>
                 </div>
 
-                <div class="text-right flex-shrink-0">
-                    <div class="text-xs text-gray-400 uppercase tracking-wide font-semibold">Student ID</div>
+                <div class="text-left md:text-right flex-shrink-0 border-t md:border-t-0 pt-3 md:pt-0 border-gray-100">
+                    <div id="studentIdLabel" class="text-xs text-gray-400 uppercase tracking-wide font-semibold">Student ID</div>
                     <div id="studentSid" class="text-lg font-mono font-bold text-gray-700"></div>
-                    <div id="studentRfid" class="text-xs text-gray-400 mt-0.5"></div>
+                    <div id="studentRfid" class="text-xs text-gray-500 font-mono mt-0.5"></div>
                 </div>
             </div>
 
@@ -167,7 +184,7 @@
                     </svg>
                 </div>
                 <h4 class="text-gray-600 font-semibold">No borrow records found</h4>
-                <p class="text-gray-400 text-sm mt-1">This student has never borrowed a book
+                <p id="historyEmptySub" class="text-gray-400 text-sm mt-1">This borrower has never borrowed a book
                     @if(!$showCampus) for your collection @endif.</p>
             </div>
             <div id="historyLoading" class="hidden text-center py-14">
@@ -200,14 +217,48 @@
 
     const showCampus     = @json($showCampus);
 
+    let activeFilter   = 'all'; // 'all', 'student', 'employee'
     let debounceTimer  = null;
     let abortCtrl      = null;
     let suggestions    = [];
     let activeIndex    = -1;
-    let currentStudent = null;
+    let currentBorrower = null;
+    let currentStudent = null; // compatibility
     let currentPage    = 1;
 
     const esc = (v) => String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&','<':'<','>':'>','"':'"',"'":'&#39;'}[m]));
+
+    // ───────────────────────── Filter Tabs ─────────────────────────
+    function setFilter(type) {
+        activeFilter = type;
+        const filterBtns = {
+            'all': document.getElementById('filter-all'),
+            'student': document.getElementById('filter-student'),
+            'employee': document.getElementById('filter-employee')
+        };
+
+        Object.keys(filterBtns).forEach(k => {
+            const btn = filterBtns[k];
+            if (!btn) return;
+            if (k === type) {
+                btn.className = 'filter-btn px-4 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition bg-white text-emerald-950 shadow-sm';
+            } else {
+                btn.className = 'filter-btn px-4 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition text-emerald-100 hover:text-white';
+            }
+        });
+
+        if (type === 'employee') {
+            searchInput.placeholder = 'Type employee full name, Employee ID (EID) or RFID…';
+        } else if (type === 'student') {
+            searchInput.placeholder = 'Type student full name, Student ID (SID) or RFID…';
+        } else {
+            searchInput.placeholder = 'Type name, Student ID (SID), Employee ID (EID) or RFID…';
+        }
+
+        if (searchInput.value.trim()) {
+            doSearch();
+        }
+    }
 
     // ───────────────────────── Search ─────────────────────────
     searchInput.addEventListener('input', () => {
@@ -226,7 +277,7 @@
             highlightSuggestion();
         } else if (e.key === 'Enter') {
             e.preventDefault();
-            selectStudent(suggestions[activeIndex >= 0 ? activeIndex : 0]);
+            selectBorrower(suggestions[activeIndex >= 0 ? activeIndex : 0]);
         } else if (e.key === 'Escape') {
             hideResults();
         }
@@ -246,12 +297,14 @@
         searchSpinner.classList.remove('hidden');
         searchSpinner.classList.add('flex');
 
-        fetch(`{{ route('admin.library.checker.students') }}?q=${encodeURIComponent(q)}`, {
+        const url = `{{ route('admin.library.checker.students') }}?q=${encodeURIComponent(q)}&type=${encodeURIComponent(activeFilter)}`;
+
+        fetch(url, {
             headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
             signal: abortCtrl.signal
         })
         .then(r => r.json())
-        .then(data => renderResults(data.students || [], data.total || 0))
+        .then(data => renderResults(data.borrowers || data.students || [], data.total || 0))
         .catch(err => { if (err.name !== 'AbortError') hideResults(); })
         .finally(() => {
             searchSpinner.classList.add('hidden');
@@ -259,45 +312,65 @@
         });
     }
 
-    function renderResults(students, total = students.length) {
-        suggestions = students;
+    function renderResults(borrowers, total = borrowers.length) {
+        suggestions = borrowers;
         activeIndex = -1;
 
-        if (students.length === 0) {
+        if (borrowers.length === 0) {
+            const filterLabel = activeFilter === 'employee' ? 'employee' : (activeFilter === 'student' ? 'student' : 'borrower');
             resultsBox.innerHTML = `
                 <div class="px-5 py-6 text-center text-gray-400 text-sm">
-                    No student found matching "<span class="font-semibold text-gray-500">${esc(searchInput.value.trim())}</span>"
+                    No ${filterLabel} found matching "<span class="font-semibold text-gray-500">${esc(searchInput.value.trim())}</span>"
                 </div>`;
             resultsBox.classList.remove('hidden');
             return;
         }
 
-        const rows = students.map((s, i) => {
-            const badge = s.active_borrows > 0
-                ? `<span class="ml-auto flex-shrink-0 bg-amber-100 text-amber-700 text-xs font-semibold px-2.5 py-1 rounded-full">${s.active_borrows} borrowed now</span>`
-                : (s.total_borrows > 0
-                    ? `<span class="ml-auto flex-shrink-0 bg-gray-100 text-gray-500 text-xs font-medium px-2.5 py-1 rounded-full">${s.total_borrows} total</span>`
+        const rows = borrowers.map((b, i) => {
+            const isEmp = b.type === 'employee';
+            const badge = b.active_borrows > 0
+                ? `<span class="ml-auto flex-shrink-0 bg-amber-100 text-amber-700 text-xs font-semibold px-2.5 py-1 rounded-full">${b.active_borrows} borrowed now</span>`
+                : (b.total_borrows > 0
+                    ? `<span class="ml-auto flex-shrink-0 bg-gray-100 text-gray-500 text-xs font-medium px-2.5 py-1 rounded-full">${b.total_borrows} total</span>`
                     : `<span class="ml-auto flex-shrink-0 bg-emerald-50 text-emerald-600 text-xs font-medium px-2.5 py-1 rounded-full">No borrows yet</span>`);
 
-            const sub = [s.course, s.grade ? 'Grade ' + s.grade : null, s.section, s.department]
-                .filter(Boolean).map(esc).join(' · ');
+            const rolePill = isEmp
+                ? `<span class="bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide">Employee</span>`
+                : `<span class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide">Student</span>`;
+
+            const idLabel = isEmp ? 'EID' : 'SID';
+            const idVal   = isEmp ? (b.eid || b.id || '—') : (b.sid || '—');
+            const rfidVal = b.rfid ? ` · RFID: ${esc(b.rfid)}` : '';
+
+            const sub = isEmp
+                ? [b.position, b.department, b.campus].filter(Boolean).map(esc).join(' · ')
+                : [b.course, b.grade ? 'Grade ' + b.grade : null, b.section, b.department].filter(Boolean).map(esc).join(' · ');
+
+            const avatarBg = isEmp
+                ? 'background: linear-gradient(135deg, #1e40af, #3b82f6);'
+                : 'background: linear-gradient(135deg, #0a4d2a, #156d3f);';
 
             return `
-                <button type="button" data-index="${i}" onclick="selectStudent(suggestions[${i}])"
+                <button type="button" data-index="${i}" onclick="selectBorrower(suggestions[${i}])"
                         class="suggestion w-full flex items-center gap-3 px-4 py-3 hover:bg-emerald-50/60 transition text-left border-b border-gray-50 last:border-0">
                     <div class="w-9 h-9 rounded-lg flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
-                         style="background: linear-gradient(135deg, #0a4d2a, #156d3f);">${initials(s.name)}</div>
+                         style="${avatarBg}">${initials(b.full_name || b.name)}</div>
                     <div class="min-w-0">
-                        <div class="font-semibold text-gray-800 text-sm truncate">${esc(s.name)}</div>
-                        <div class="text-xs text-gray-400 truncate">${esc(s.sid)}${sub ? ' — ' + sub : ''}</div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-semibold text-gray-800 text-sm truncate">${esc(b.full_name || b.name)}</span>
+                            ${rolePill}
+                        </div>
+                        <div class="text-xs text-gray-400 truncate">
+                            <span class="font-mono text-gray-600 font-semibold">${idLabel}: ${esc(idVal)}</span>${rfidVal}${sub ? ' — ' + sub : ''}
+                        </div>
                     </div>
                     ${badge}
                 </button>`;
         }).join('');
 
-        const footer = total > students.length
+        const footer = total > borrowers.length
             ? `<div class="px-4 py-2.5 bg-gray-50 text-xs text-gray-500 text-center">
-                 Showing <span class="font-semibold text-gray-600">${students.length}</span> of <span class="font-semibold text-gray-600">${total}</span> matches — keep typing to narrow down
+                 Showing <span class="font-semibold text-gray-600">${borrowers.length}</span> of <span class="font-semibold text-gray-600">${total}</span> matches — keep typing to narrow down
                </div>`
             : '';
 
@@ -318,67 +391,146 @@
     }
 
     // ───────────────────────── History ─────────────────────────
-    function selectStudent(student) {
-        if (!student) return;
+    function selectBorrower(borrower) {
+        if (!borrower) return;
         hideResults();
-        searchInput.value = `${student.name} (${student.sid})`;
+
+        const isEmp = borrower.type === 'employee';
+        const idVal = isEmp ? (borrower.eid || borrower.id) : borrower.sid;
+        const prefix = isEmp ? 'EID' : 'SID';
+
+        searchInput.value = `${borrower.full_name || borrower.name} (${prefix}: ${idVal})`;
         searchInput.blur();
 
-        currentStudent = { ...student };
-        renderProfile(student, null);
+        currentBorrower = { ...borrower };
+        currentStudent  = currentBorrower; // backward compatibility
+        renderProfile(borrower, null);
 
         idleState.classList.add('hidden');
         resultSection.classList.remove('hidden');
         resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-        loadHistory(student.sid, 1);
+        loadHistory(idVal, borrower.type, 1);
+    }
+
+    // Compatibility alias
+    function selectStudent(student) {
+        selectBorrower(student);
     }
 
     function refreshHistory() {
-        if (currentStudent) loadHistory(currentStudent.sid, currentPage);
+        if (currentBorrower) {
+            const isEmp = currentBorrower.type === 'employee';
+            const idVal = isEmp ? (currentBorrower.eid || currentBorrower.id) : currentBorrower.sid;
+            loadHistory(idVal, currentBorrower.type, currentPage);
+        }
     }
 
     function goToPage(page) {
-        if (currentStudent) loadHistory(currentStudent.sid, page);
+        if (currentBorrower) {
+            const isEmp = currentBorrower.type === 'employee';
+            const idVal = isEmp ? (currentBorrower.eid || currentBorrower.id) : currentBorrower.sid;
+            loadHistory(idVal, currentBorrower.type, page);
+        }
     }
 
-    function loadHistory(sid, page = 1) {
+    function loadHistory(id, type = 'student', page = 1) {
         currentPage = page;
         setLoading(true);
         hideAlert();
 
-        fetch(`{{ route('admin.library.checker.history') }}?sid=${encodeURIComponent(sid)}&page=${page}`, {
+        const params = new URLSearchParams({
+            id: id,
+            sid: id, // compatibility
+            type: type,
+            page: page
+        });
+
+        fetch(`{{ route('admin.library.checker.history') }}?${params.toString()}`, {
             headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
         })
         .then(async (r) => {
             const data = await r.json();
             if (!r.ok || !data.success) throw new Error(data.message || 'Unable to load borrow history.');
-            renderProfile(data.student, data.summary);
-            renderHistory(data.transactions, data.summary, data.pagination);
+            const borrower = data.borrower || data.student;
+            renderProfile(borrower, data.summary);
+            renderHistory(data.transactions, data.summary, data.pagination, borrower);
         })
         .catch(err => showAlert(err.message))
         .finally(() => setLoading(false));
     }
 
-    function renderProfile(s, summary) {
-        document.getElementById('studentAvatar').textContent = initials(s.name);
-        document.getElementById('studentName').textContent   = s.name;
-        document.getElementById('studentSid').textContent    = s.sid;
-        document.getElementById('studentRfid').textContent   = s.rfid ? `RFID: ${s.rfid}` : '';
+    function renderProfile(b, summary) {
+        const isEmp = b.type === 'employee';
+
+        // Avatar
+        const avatar = document.getElementById('studentAvatar');
+        avatar.textContent = initials(b.full_name || b.name);
+        avatar.style.background = isEmp
+            ? 'linear-gradient(135deg, #1e40af, #3b82f6)'
+            : 'linear-gradient(135deg, #0a4d2a, #156d3f)';
+
+        // Full Name
+        document.getElementById('studentName').textContent = b.full_name || b.name;
+
+        // Role pill
+        const rolePill = document.getElementById('borrowerTypePill');
+        if (rolePill) {
+            rolePill.innerHTML = isEmp
+                ? `<span class="inline-flex items-center gap-1 bg-blue-100 text-blue-800 text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-wide">
+                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                     </svg>
+                     Employee
+                   </span>`
+                : `<span class="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-wide">
+                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/>
+                     </svg>
+                     Student
+                   </span>`;
+        }
+
+        // Right ID & RFID block
+        const idLabel = document.getElementById('studentIdLabel');
+        const idValue = document.getElementById('studentSid');
+        const rfidValue = document.getElementById('studentRfid');
+
+        if (isEmp) {
+            idLabel.textContent = 'Employee ID';
+            idValue.textContent = b.eid || b.id || '—';
+            rfidValue.textContent = b.rfid ? `RFID: ${b.rfid}` : 'RFID: None';
+        } else {
+            idLabel.textContent = 'Student ID';
+            idValue.textContent = b.sid || '—';
+            rfidValue.textContent = b.rfid ? `RFID: ${b.rfid}` : 'RFID: None';
+        }
 
         // Meta chips
-        const chips = [
-            s.course  ? `📚 ${s.course}` : null,
-            s.year    ? `🗓 Year ${s.year}` : null,
-            s.grade   ? `🎓 Grade ${s.grade}` : null,
-            s.section ? `Section ${s.section}` : null,
-            s.department ? `🏛 ${s.department}` : null,
-            s.campus  ? `📍 ${s.campus}` : null,
-        ].filter(Boolean);
+        let chips = [];
+        if (isEmp) {
+            chips = [
+                b.eid ? `<span class="bg-blue-50 border border-blue-200 text-blue-800 text-xs font-semibold px-2.5 py-1 rounded-lg">🆔 Employee ID: ${esc(b.eid)}</span>` : null,
+                b.rfid ? `<span class="bg-indigo-50 border border-indigo-200 text-indigo-800 text-xs font-semibold px-2.5 py-1 rounded-lg">📡 RFID: ${esc(b.rfid)}</span>` : null,
+                b.position ? `<span class="bg-gray-100 text-gray-700 text-xs font-medium px-2.5 py-1 rounded-lg">💼 ${esc(b.position)}</span>` : null,
+                b.department ? `<span class="bg-gray-100 text-gray-700 text-xs font-medium px-2.5 py-1 rounded-lg">🏛 ${esc(b.department)}</span>` : null,
+                b.employment_type ? `<span class="bg-gray-100 text-gray-700 text-xs font-medium px-2.5 py-1 rounded-lg">📋 ${esc(b.employment_type)}</span>` : null,
+                b.campus ? `<span class="bg-gray-100 text-gray-700 text-xs font-medium px-2.5 py-1 rounded-lg">📍 ${esc(b.campus)}</span>` : null,
+            ].filter(Boolean);
+        } else {
+            chips = [
+                b.sid ? `<span class="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold px-2.5 py-1 rounded-lg">🆔 Student ID: ${esc(b.sid)}</span>` : null,
+                b.rfid ? `<span class="bg-gray-100 text-gray-700 text-xs font-semibold px-2.5 py-1 rounded-lg">📡 RFID: ${esc(b.rfid)}</span>` : null,
+                b.course ? `<span class="bg-gray-100 text-gray-700 text-xs font-medium px-2.5 py-1 rounded-lg">📚 ${esc(b.course)}</span>` : null,
+                b.year ? `<span class="bg-gray-100 text-gray-700 text-xs font-medium px-2.5 py-1 rounded-lg">🗓 Year ${esc(b.year)}</span>` : null,
+                b.grade ? `<span class="bg-gray-100 text-gray-700 text-xs font-medium px-2.5 py-1 rounded-lg">🎓 Grade ${esc(b.grade)}</span>` : null,
+                b.section ? `<span class="bg-gray-100 text-gray-700 text-xs font-medium px-2.5 py-1 rounded-lg">Section ${esc(b.section)}</span>` : null,
+                b.department ? `<span class="bg-gray-100 text-gray-700 text-xs font-medium px-2.5 py-1 rounded-lg">🏛 ${esc(b.department)}</span>` : null,
+                b.campus ? `<span class="bg-gray-100 text-gray-700 text-xs font-medium px-2.5 py-1 rounded-lg">📍 ${esc(b.campus)}</span>` : null,
+            ].filter(Boolean);
+        }
 
-        document.getElementById('studentMeta').innerHTML = chips.map(c =>
-            `<span class="bg-gray-100 text-gray-600 text-xs font-medium px-2.5 py-1 rounded-lg">${esc(c)}</span>`
-        ).join('');
+        document.getElementById('studentMeta').innerHTML = chips.join('');
 
         // Status pill
         const pill = document.getElementById('studentStatusPill');
@@ -412,14 +564,20 @@
         }
     }
 
-    function renderHistory(transactions, summary, pagination = null) {
+    function renderHistory(transactions, summary, pagination = null, borrower = null) {
         const body  = document.getElementById('historyBody');
         const empty = document.getElementById('historyEmpty');
         const count = document.getElementById('historyCount');
         const table = document.querySelector('#historyCard table');
+        const emptySub = document.getElementById('historyEmptySub');
 
         count.textContent = `${summary.total_borrows} record${summary.total_borrows === 1 ? '' : 's'}`;
         renderPager(pagination);
+
+        if (emptySub) {
+            const borrowerType = borrower?.type === 'employee' ? 'employee' : 'student';
+            emptySub.textContent = `This ${borrowerType} has never borrowed a book${!showCampus ? ' for your collection' : ''}.`;
+        }
 
         if (transactions.length === 0) {
             table.closest('.overflow-x-auto').classList.add('hidden');

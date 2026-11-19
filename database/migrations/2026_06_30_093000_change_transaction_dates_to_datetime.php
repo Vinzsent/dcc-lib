@@ -14,11 +14,7 @@ return new class extends Migration
         Schema::table('transactions', function (Blueprint $table) {
             $table->dateTime('date_borrowed')->change();
             $table->dateTime('due_date')->change();
-<<<<<<< HEAD
             $table->dateTime('date_returned')->nullable()->change();
-=======
-            $table->dateTime('date_returned')->change();
->>>>>>> fef6ffc (updated)
         });
     }
 
@@ -30,11 +26,7 @@ return new class extends Migration
         Schema::table('transactions', function (Blueprint $table) {
             $table->date('date_borrowed')->change();
             $table->date('due_date')->change();
-<<<<<<< HEAD
             $table->date('date_returned')->nullable()->change();
-=======
-            $table->date('date_returned')->change();
->>>>>>> fef6ffc (updated)
         });
     }
 };
