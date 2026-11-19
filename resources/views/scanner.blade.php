@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 @php
+<<<<<<< HEAD
     $currentCampus = session('scanner_campus') ?? session('location') ?? 'DCC TED';
+=======
+    $currentCampus = session('scanner_campus') ?? session('location');
+>>>>>>> fef6ffc (updated)
     if ($currentCampus && str_starts_with($currentCampus, 'DCC BED')) {
         $currentCampus = 'DCC BED';
     } elseif ($currentCampus === 'DCC Main') {

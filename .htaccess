@@ -4,13 +4,13 @@
     </IfModule>
 
     RewriteEngine On
-    
-    # Handle the subdirectory base
-    RewriteBase /dcc-lib/
 
-    # Redirect root to public folder
-    RewriteRule ^$ public/ [L]
+    # Handle Authorization Header
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
-    # Redirect everything else to public folder, unless it already points there
-    RewriteRule ^((?!public/).*)$ public/$1 [L,NC]
+    # If the request is for a real file or directory, serve it directly
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [L]
 </IfModule>

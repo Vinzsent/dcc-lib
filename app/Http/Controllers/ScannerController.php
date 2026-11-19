@@ -91,11 +91,19 @@ class ScannerController extends Controller
     {
         $today = Carbon::today();
 
+<<<<<<< HEAD
         // Default to 'DCC TED' on first visit so the session is never null
         // (the JS syncCampus() call on page load will immediately override this
         //  with whatever the dropdown shows, but this protects any race).
         if (!session()->has('scanner_campus')) {
             session(['scanner_campus' => 'DCC TED']);
+=======
+        // Default to 'DCC BED' on first visit so the session is never null
+        // (the JS syncCampus() call on page load will immediately override this
+        //  with whatever the dropdown shows, but this protects any race).
+        if (!session()->has('scanner_campus')) {
+            session(['scanner_campus' => 'DCC BED']);
+>>>>>>> fef6ffc (updated)
         }
 
         $location = session('scanner_campus') ?? session('location');
@@ -122,7 +130,11 @@ class ScannerController extends Controller
             return response()->json(['success' => false, 'message' => 'No Student ID or RFID provided.'], 400);
         }
 
+<<<<<<< HEAD
         $location = session('scanner_campus') ?? session('location') ?? 'DCC TED';
+=======
+        $location = session('scanner_campus') ?? session('location') ?? 'DCC BED';
+>>>>>>> fef6ffc (updated)
 
         // Look up the student globally (no campus / grade filter) — same approach
         // as employees so any student can tap at any campus's scanner.
